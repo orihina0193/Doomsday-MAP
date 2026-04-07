@@ -1,1 +1,106 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>領地ポイントシミュレーター</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; text-align: center; background: #f0f0f0; }
+        #header { background: #333; color: white; padding: 10px; sticky: top; position: sticky; top: 0; z-index: 100; }
+        #map-container { position: relative; display: inline-block; margin-top: 10px; cursor: crosshair; overflow: hidden; }
+        #map-image { display: block; max-width: 100%; height: auto; }
+        .dot { position: absolute; width: 20px; height: 20px; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; border: 2px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.5); }
+        .controls { margin: 10px; padding: 10px; background: white; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; border-radius: 5px; border: 1px solid #ccc; }
+        .level-selector { margin-bottom: 10px; }
+        .level-btn { padding: 8px 12px; margin: 2px; border: none; color: white; font-weight: bold; border-radius: 4px; }
+    </style>
+</head>
+<body>
 
+<div id="header">
+    <div style="font-size: 1.2em;">合計: <span id="total-pts">0</span> / 30,000 pt</div>
+    <div id="status-msg" style="font-size: 0.9em; color: #aaa;">あと 30,000 pt 必要です</div>
+</div>
+
+<div class="controls">
+    <div class="level-selector">
+        塗りつぶすレベルを選択：<br>
+        <button class="level-btn" style="background:#ff4d4d;" onclick="currentLv=7">Lv7</button>
+        <button class="level-btn" style="background:#ff944d;" onclick="currentLv=6">Lv6</button>
+        <button class="level-btn" style="background:#ffdb4d;" onclick="currentLv=5">Lv5</button>
+        <button class="level-btn" style="background:#d64dff;" onclick="currentLv=4">Lv4</button>
+        <button class="level-btn" style="background:#ff4da6;" onclick="currentLv=3">Lv3</button>
+        <button class="level-btn" style="background:#4da6ff;" onclick="currentLv=2">Lv2</button>
+        <button class="level-btn" style="background:#ffff4d; color:black;" onclick="currentLv=1">Lv1</button>
+    </div>
+    <button onclick="resetMap()">リセット</button>
+</div>
+
+<div id="map-container">
+    <img id="map-image" src="image.png" alt="Map">
+</div>
+
+<script>
+    const points = { 7: 6000, 6: 4000, 5: 3000, 4: 2000, 3: 600, 2: 200, 1: 100 };
+    const colors = { 7:'#ff4d4d', 6:'#ff944d', 5:'#ffdb4d', 4:'#d64dff', 3:'#ff4da6', 2:'#4da6ff', 1:'#ffff4d' };
+    
+    let currentLv = 7;
+    let totalScore = 0;
+    let selectedAreas = [];
+
+    const container = document.getElementById('map-container');
+    const totalDisplay = document.getElementById('total-pts');
+    const statusMsg = document.getElementById('status-msg');
+
+    container.addEventListener('click', function(e) {
+        const rect = container.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width) * 100;
+        const y = ((e.clientY - rect.top) / rect.height) * 100;
+
+        addDot(x, y, currentLv);
+    });
+
+    function addDot(x, y, lv) {
+        const dot = document.createElement('div');
+        dot.className = 'dot';
+        dot.style.left = x + '%';
+        dot.style.top = y + '%';
+        dot.style.backgroundColor = colors[lv];
+        
+        // クリックで削除できるように
+        dot.style.pointerEvents = 'auto';
+        dot.onclick = (e) => {
+            e.stopPropagation();
+            container.removeChild(dot);
+            updateScore(-points[lv]);
+        };
+
+        container.appendChild(dot);
+        updateScore(points[lv]);
+    }
+
+    function updateScore(val) {
+        totalScore += val;
+        totalDisplay.innerText = totalScore.toLocaleString();
+        
+        const remaining = 30000 - totalScore;
+        if (remaining > 0) {
+            statusMsg.innerText = `あと ${remaining.toLocaleString()} pt 必要です`;
+            statusMsg.style.color = "#aaa";
+        } else {
+            statusMsg.innerText = "目標達成！";
+            statusMsg.style.color = "#4dff4d";
+        }
+    }
+
+    function resetMap() {
+        const dots = document.querySelectorAll('.dot');
+        dots.forEach(d => container.removeChild(d));
+        totalScore = 0;
+        updateScore(0);
+    }
+</script>
+
+</body>
+</html>
