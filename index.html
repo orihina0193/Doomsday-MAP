@@ -3,112 +3,132 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>領地ポイントシミュレーター</title>
+    <title>【座標データ作成】領地シミュレーター</title>
     <style>
-        body { font-family: sans-serif; margin: 0; text-align: center; background: #f0f0f0; touch-action: manipulation; }
-        #header { background: #333; color: white; padding: 15px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
-        #map-container { position: relative; display: inline-block; margin: 10px auto; cursor: crosshair; background: #fff; line-height: 0; }
-        #map-image { display: block; max-width: 100%; height: auto; -webkit-user-drag: none; }
-        .dot { position: absolute; width: 18px; height: 18px; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: auto; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.6); z-index: 10; }
-        .controls { margin: 10px; padding: 15px; background: white; border-bottom: 1px solid #ddd; }
-        .level-selector { margin-bottom: 15px; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
-        .level-btn { padding: 10px 15px; border: 2px solid transparent; color: white; font-weight: bold; border-radius: 8px; cursor: pointer; transition: transform 0.1s; }
-        .level-btn:active { transform: scale(0.95); }
-        .level-btn.active { border-color: #333; box-shadow: 0 0 8px rgba(0,0,0,0.3); }
-        .reset-btn { padding: 10px 25px; background: #666; color: white; border: none; border-radius: 5px; font-size: 14px; margin-top: 10px; }
+        body { font-family: sans-serif; margin: 0; background: #222; color: white; text-align: center; }
+        #header { background: #333; padding: 10px; position: sticky; top: 0; z-index: 100; border-bottom: 2px solid #444; }
+        #map-container { position: relative; display: inline-block; margin: 10px auto; background: #000; line-height: 0; cursor: crosshair; }
+        #map-image { display: block; max-width: 100%; height: auto; user-select: none; -webkit-user-drag: none; }
+        
+        /* 登録済みの印 */
+        .dot { position: absolute; width: 22px; height: 22px; border-radius: 50%; transform: translate(-50%, -50%); 
+               color: white; font-size: 10px; font-weight: bold; line-height: 22px; text-align: center;
+               border: 1px solid white; box-shadow: 0 0 5px black; pointer-events: none; z-index: 10; }
+        
+        .controls { background: #333; padding: 15px; border-top: 2px solid #444; }
+        .lv-btns { display: flex; justify-content: center; gap: 5px; flex-wrap: wrap; margin-bottom: 10px; }
+        .lv-btn { padding: 10px; border-radius: 5px; border: 2px solid transparent; cursor: pointer; font-weight: bold; }
+        .lv-btn.active { border-color: white; transform: scale(1.1); box-shadow: 0 0 10px rgba(255,255,255,0.5); }
+        
+        .actions { margin-top: 15px; display: flex; justify-content: center; gap: 10px; }
+        textarea { width: 90%; height: 80px; margin-top: 10px; background: #111; color: #0f0; }
+        
+        /* レベル別の色分け */
+        .lv1 { background: #555; } .lv2 { background: #4da6ff; } .lv3 { background: #ff4da6; }
+        .lv4 { background: #d64dff; } .lv5 { background: #ffdb4d; color: black; }
+        .lv6 { background: #ff944d; } .lv7 { background: #ff4d4d; }
     </style>
 </head>
 <body>
 
 <div id="header">
-    <div style="font-size: 1.4em; font-weight: bold;">合計: <span id="total-pts">0</span> / 30,000 pt</div>
-    <div id="status-msg" style="font-size: 0.9em; color: #ccc; margin-top: 5px;">あと 30,000 pt 必要です</div>
-</div>
-
-<div class="controls">
-    <div class="level-selector" id="selectors">
-        <button class="level-btn active" style="background:#ff4d4d;" onclick="setLv(7, this)">Lv7</button>
-        <button class="level-btn" style="background:#ff944d;" onclick="setLv(6, this)">Lv6</button>
-        <button class="level-btn" style="background:#ffdb4d; color: #333;" onclick="setLv(5, this)">Lv5</button>
-        <button class="level-btn" style="background:#d64dff;" onclick="setLv(4, this)">Lv4</button>
-        <button class="level-btn" style="background:#ff4da6;" onclick="setLv(3, this)">Lv3</button>
-        <button class="level-btn" style="background:#4da6ff;" onclick="setLv(2, this)">Lv2</button>
-        <button class="level-btn" style="background:#ffff4d; color:black;" onclick="setLv(1, this)">Lv1</button>
-    </div>
-    <button class="reset-btn" onclick="resetMap()">マップをクリア</button>
+    <div id="status">現在のモード: <span id="mode-text" style="color:yellow; font-weight:bold;">Lv1の登録</span></div>
+    <div style="font-size: 0.8em; color: #aaa;">マップをタップして座標を登録。登録済みは丸が表示されます。</div>
 </div>
 
 <div id="map-container">
-    <img id="map-image" src="img/image.png" alt="領地マップ">
+    <img id="map-image" src="img/image.png" alt="Map">
+</div>
+
+<div class="controls">
+    <div class="lv-btns">
+        <button class="lv-btn lv1 active" onclick="setLv(1)">Lv1</button>
+        <button class="lv-btn lv2" onclick="setLv(2)">Lv2</button>
+        <button class="lv-btn lv3" onclick="setLv(3)">Lv3</button>
+        <button class="lv-btn lv4" onclick="setLv(4)">Lv4</button>
+        <button class="lv-btn lv5" onclick="setLv(5)">Lv5</button>
+        <button class="lv-btn lv6" onclick="setLv(6)">Lv6</button>
+        <button class="lv-btn lv7" onclick="setLv(7)">Lv7</button>
+    </div>
+
+    <div class="actions">
+        <button onclick="saveToBrowser()" style="background:#28a745; color:white;">保存(ブラウザ内)</button>
+        <button onclick="undo()" style="background:#666; color:white;">1つ消す</button>
+        <button onclick="copyData()" style="background:#007bff; color:white;">全データをコピーしてGeminiへ</button>
+        <button onclick="clearAll()" style="background:#dc3545; color:white;">全削除</button>
+    </div>
+    <textarea id="output" readonly placeholder="ここにデータが出力されます"></textarea>
 </div>
 
 <script>
-    const points = { 7: 6000, 6: 4000, 5: 3000, 4: 2000, 3: 600, 2: 200, 1: 100 };
-    const colors = { 7:'#ff4d4d', 6:'#ff944d', 5:'#ffdb4d', 4:'#d64dff', 3:'#ff4da6', 2:'#4da6ff', 1:'#ffff4d' };
-    
-    let currentLv = 7;
-    let totalScore = 0;
+    let currentLv = 1;
+    let mapData = JSON.parse(localStorage.getItem('savedMapData')) || [];
 
     const container = document.getElementById('map-container');
-    const totalDisplay = document.getElementById('total-pts');
-    const statusMsg = document.getElementById('status-msg');
+    const output = document.getElementById('output');
 
-    // レベル選択の切り替え
-    function setLv(lv, btn) {
+    // 起動時に保存済みデータを表示
+    window.onload = () => {
+        mapData.forEach(d => renderDot(d.x, d.y, d.lv));
+        updateModeText();
+    };
+
+    function setLv(lv) {
         currentLv = lv;
-        document.querySelectorAll('.level-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
+        document.querySelectorAll('.lv-btn').forEach(b => b.classList.remove('active'));
+        document.querySelector(`.lv${lv}`).classList.add('active');
+        updateModeText();
     }
 
-    // クリックでドットを追加
-    container.addEventListener('click', function(e) {
-        if (e.target !== document.getElementById('map-image') && e.target !== container) return;
-        
-        const rect = container.getBoundingClientRect();
-        const x = ((e.clientX - rect.left) / rect.width) * 100;
-        const y = ((e.clientY - rect.top) / rect.height) * 100;
+    function updateModeText() {
+        document.getElementById('mode-text').innerText = `Lv${currentLv}の登録`;
+    }
 
-        addDot(x, y, currentLv);
+    container.addEventListener('click', (e) => {
+        const rect = container.getBoundingClientRect();
+        const x = parseFloat(((e.clientX - rect.left) / rect.width * 100).toFixed(2));
+        const y = parseFloat(((e.clientY - rect.top) / rect.height * 100).toFixed(2));
+
+        const newData = { x, y, lv: currentLv };
+        mapData.push(newData);
+        renderDot(x, y, currentLv);
+        saveToBrowser(); // 自動でブラウザ保存
     });
 
-    function addDot(x, y, lv) {
+    function renderDot(x, y, lv) {
         const dot = document.createElement('div');
-        dot.className = 'dot';
+        dot.className = `dot lv${lv}`;
         dot.style.left = x + '%';
         dot.style.top = y + '%';
-        dot.style.backgroundColor = colors[lv];
-        
-        // もう一度タップで削除
-        dot.onclick = (e) => {
-            e.stopPropagation();
-            container.removeChild(dot);
-            updateScore(-points[lv]);
-        };
-
+        dot.innerText = lv;
         container.appendChild(dot);
-        updateScore(points[lv]);
     }
 
-    function updateScore(val) {
-        totalScore += val;
-        totalDisplay.innerText = totalScore.toLocaleString();
-        
-        const remaining = 30000 - totalScore;
-        if (remaining > 0) {
-            statusMsg.innerText = `あと ${remaining.toLocaleString()} pt 必要です`;
-            statusMsg.style.color = "#ccc";
-        } else {
-            statusMsg.innerText = "★ 目標の30,000pt達成！ ★";
-            statusMsg.style.color = "#4dff4d";
+    function saveToBrowser() {
+        localStorage.setItem('savedMapData', JSON.stringify(mapData));
+    }
+
+    function undo() {
+        if (mapData.length > 0) {
+            mapData.pop();
+            container.removeChild(container.lastChild);
+            saveToBrowser();
         }
     }
 
-    function resetMap() {
-        if (!confirm('マップをリセットしてもよろしいですか？')) return;
-        const dots = document.querySelectorAll('.dot');
-        dots.forEach(d => d.remove());
-        totalScore = 0;
-        updateScore(0);
+    function copyData() {
+        output.value = JSON.stringify(mapData);
+        output.select();
+        document.execCommand('copy');
+        alert("全データをコピーしました！そのままGeminiのチャットに貼り付けてください。");
+    }
+
+    function clearAll() {
+        if(confirm("ブラウザに保存したデータもすべて消去しますか？")) {
+            mapData = [];
+            localStorage.removeItem('savedMapData');
+            location.reload();
+        }
     }
 </script>
 
