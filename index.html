@@ -2,43 +2,44 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>領地ポイントシミュレーター</title>
     <style>
-        body { font-family: sans-serif; margin: 0; text-align: center; background: #f0f0f0; }
-        #header { background: #333; color: white; padding: 10px; sticky: top; position: sticky; top: 0; z-index: 100; }
-        #map-container { position: relative; display: inline-block; margin-top: 10px; cursor: crosshair; overflow: hidden; }
-        #map-image { display: block; max-width: 100%; height: auto; }
-        .dot { position: absolute; width: 20px; height: 20px; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; border: 2px solid white; box-shadow: 0 0 5px rgba(0,0,0,0.5); }
-        .controls { margin: 10px; padding: 10px; background: white; }
-        button { padding: 10px 20px; font-size: 16px; cursor: pointer; border-radius: 5px; border: 1px solid #ccc; }
-        .level-selector { margin-bottom: 10px; }
-        .level-btn { padding: 8px 12px; margin: 2px; border: none; color: white; font-weight: bold; border-radius: 4px; }
+        body { font-family: sans-serif; margin: 0; text-align: center; background: #f0f0f0; touch-action: manipulation; }
+        #header { background: #333; color: white; padding: 15px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+        #map-container { position: relative; display: inline-block; margin: 10px auto; cursor: crosshair; background: #fff; line-height: 0; }
+        #map-image { display: block; max-width: 100%; height: auto; -webkit-user-drag: none; }
+        .dot { position: absolute; width: 18px; height: 18px; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: auto; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.6); z-index: 10; }
+        .controls { margin: 10px; padding: 15px; background: white; border-bottom: 1px solid #ddd; }
+        .level-selector { margin-bottom: 15px; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+        .level-btn { padding: 10px 15px; border: 2px solid transparent; color: white; font-weight: bold; border-radius: 8px; cursor: pointer; transition: transform 0.1s; }
+        .level-btn:active { transform: scale(0.95); }
+        .level-btn.active { border-color: #333; box-shadow: 0 0 8px rgba(0,0,0,0.3); }
+        .reset-btn { padding: 10px 25px; background: #666; color: white; border: none; border-radius: 5px; font-size: 14px; margin-top: 10px; }
     </style>
 </head>
 <body>
 
 <div id="header">
-    <div style="font-size: 1.2em;">合計: <span id="total-pts">0</span> / 30,000 pt</div>
-    <div id="status-msg" style="font-size: 0.9em; color: #aaa;">あと 30,000 pt 必要です</div>
+    <div style="font-size: 1.4em; font-weight: bold;">合計: <span id="total-pts">0</span> / 30,000 pt</div>
+    <div id="status-msg" style="font-size: 0.9em; color: #ccc; margin-top: 5px;">あと 30,000 pt 必要です</div>
 </div>
 
 <div class="controls">
-    <div class="level-selector">
-        塗りつぶすレベルを選択：<br>
-        <button class="level-btn" style="background:#ff4d4d;" onclick="currentLv=7">Lv7</button>
-        <button class="level-btn" style="background:#ff944d;" onclick="currentLv=6">Lv6</button>
-        <button class="level-btn" style="background:#ffdb4d;" onclick="currentLv=5">Lv5</button>
-        <button class="level-btn" style="background:#d64dff;" onclick="currentLv=4">Lv4</button>
-        <button class="level-btn" style="background:#ff4da6;" onclick="currentLv=3">Lv3</button>
-        <button class="level-btn" style="background:#4da6ff;" onclick="currentLv=2">Lv2</button>
-        <button class="level-btn" style="background:#ffff4d; color:black;" onclick="currentLv=1">Lv1</button>
+    <div class="level-selector" id="selectors">
+        <button class="level-btn active" style="background:#ff4d4d;" onclick="setLv(7, this)">Lv7</button>
+        <button class="level-btn" style="background:#ff944d;" onclick="setLv(6, this)">Lv6</button>
+        <button class="level-btn" style="background:#ffdb4d; color: #333;" onclick="setLv(5, this)">Lv5</button>
+        <button class="level-btn" style="background:#d64dff;" onclick="setLv(4, this)">Lv4</button>
+        <button class="level-btn" style="background:#ff4da6;" onclick="setLv(3, this)">Lv3</button>
+        <button class="level-btn" style="background:#4da6ff;" onclick="setLv(2, this)">Lv2</button>
+        <button class="level-btn" style="background:#ffff4d; color:black;" onclick="setLv(1, this)">Lv1</button>
     </div>
-    <button onclick="resetMap()">リセット</button>
+    <button class="reset-btn" onclick="resetMap()">マップをクリア</button>
 </div>
 
 <div id="map-container">
-    <img id="map-image" src="image.png" alt="Map">
+    <img id="map-image" src="img/image.png" alt="領地マップ">
 </div>
 
 <script>
@@ -47,13 +48,22 @@
     
     let currentLv = 7;
     let totalScore = 0;
-    let selectedAreas = [];
 
     const container = document.getElementById('map-container');
     const totalDisplay = document.getElementById('total-pts');
     const statusMsg = document.getElementById('status-msg');
 
+    // レベル選択の切り替え
+    function setLv(lv, btn) {
+        currentLv = lv;
+        document.querySelectorAll('.level-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    }
+
+    // クリックでドットを追加
     container.addEventListener('click', function(e) {
+        if (e.target !== document.getElementById('map-image') && e.target !== container) return;
+        
         const rect = container.getBoundingClientRect();
         const x = ((e.clientX - rect.left) / rect.width) * 100;
         const y = ((e.clientY - rect.top) / rect.height) * 100;
@@ -68,8 +78,7 @@
         dot.style.top = y + '%';
         dot.style.backgroundColor = colors[lv];
         
-        // クリックで削除できるように
-        dot.style.pointerEvents = 'auto';
+        // もう一度タップで削除
         dot.onclick = (e) => {
             e.stopPropagation();
             container.removeChild(dot);
@@ -87,16 +96,17 @@
         const remaining = 30000 - totalScore;
         if (remaining > 0) {
             statusMsg.innerText = `あと ${remaining.toLocaleString()} pt 必要です`;
-            statusMsg.style.color = "#aaa";
+            statusMsg.style.color = "#ccc";
         } else {
-            statusMsg.innerText = "目標達成！";
+            statusMsg.innerText = "★ 目標の30,000pt達成！ ★";
             statusMsg.style.color = "#4dff4d";
         }
     }
 
     function resetMap() {
+        if (!confirm('マップをリセットしてもよろしいですか？')) return;
         const dots = document.querySelectorAll('.dot');
-        dots.forEach(d => container.removeChild(d));
+        dots.forEach(d => d.remove());
         totalScore = 0;
         updateScore(0);
     }
