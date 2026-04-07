@@ -3,40 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>領地勢力図シミュレーター【確定復活版】</title>
+    <title>領地勢力図シミュレーター【逆転透過版】</title>
     <style>
         body { font-family: sans-serif; margin: 0; background: #1a1a1a; color: white; text-align: center; }
         #header { background: #333; padding: 10px; position: sticky; top: 0; z-index: 100; border-bottom: 2px solid #444; }
-        #map-container { position: relative; display: inline-block; margin: 10px auto; background: #000; line-height: 0; cursor: pointer; }
         
-        /* 1. 土台の地図 */
-        #map-image { display: block; max-width: 100%; height: auto; position: relative; z-index: 1; }
-        
-        /* 2. 色塗りレイヤー（丸い形に塗るだけ） */
-        .area-layer {
+        #map-outer {
+            position: relative;
+            display: inline-block;
+            margin: 10px auto;
+            background: #000;
+            line-height: 0;
+            cursor: pointer;
+        }
+
+        /* 1. 一番下の色シート（選択中の色がここに見える） */
+        #base-color-sheet {
             position: absolute;
-            width: 100%; height: 100%;
             top: 0; left: 0;
-            pointer-events: none;
-            opacity: 0;
+            width: 100%; height: 100%;
+            z-index: 1;
+            background-color: transparent; /* 初期値 */
+        }
+
+        /* 2. 真ん中の「黒い目隠し」レイヤー（エリアをくり抜く） */
+        #mask-overlay {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
             z-index: 5;
+            background-color: rgba(0, 0, 0, 0.7); /* 暗さの調整（0.7 = 70%の暗さ） */
+            pointer-events: none;
+            /* ここを clip-path でくり抜く */
         }
 
-        /* 透過度0.5：下の数字が透けて見えます */
-        .area-layer.active {
-            opacity: 0.5;
-        }
-
-        /* 3. 最前面の境界線（これで「丸い色」のはみ出しを上から蓋して隠す） */
+        /* 3. 一番上の地図画像と境界線 */
+        #map-image { display: block; max-width: 100%; height: auto; position: relative; z-index: 10; opacity: 1.0; pointer-events: none; }
         #line-overlay {
             position: absolute;
-            width: 100%; height: 100%;
             top: 0; left: 0;
-            pointer-events: none;
-            z-index: 10;
-            /* mask.pngの「白い線」を「黒い線」に見せ、背景の黒を消す設定 */
+            width: 100%; height: 100%;
+            z-index: 15;
             filter: invert(1);
             mix-blend-mode: multiply;
+            pointer-events: none;
         }
 
         .controls { background: #2a2a2a; padding: 15px; border-bottom: 1px solid #444; }
@@ -58,7 +68,9 @@
     <button onclick="resetMap()" style="background:#600; color:white; border:none; padding:8px 15px; border-radius:5px; cursor:pointer;">全クリア</button>
 </div>
 
-<div id="map-container">
+<div id="map-outer" onclick="handleMapClick(event)">
+    <div id="base-color-sheet"></div>
+    <div id="mask-overlay"></div>
     <img id="map-image" src="img/image.png">
     <img id="line-overlay" src="img/mask.png">
 </div>
@@ -69,81 +81,97 @@
     const colorList = ['#e6194B', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4', '#42d4f4', '#f032e6', '#bfef45', '#fabed4', '#469990', '#dcbeff', '#9A6324', '#fffac8', '#800000', '#aaffc3', '#808000', '#ffd8b1', '#000075', '#a9a9a9'];
 
     let selectedColor = colorList[0];
+    let areaStatus = {}; // { "x-y": "color" }
     let scores = {};
-    const container = document.getElementById('map-container');
     const board = document.getElementById('score-board');
+    const maskOverlay = document.getElementById('mask-overlay');
+    const baseSheet = document.getElementById('base-color-sheet');
 
-    // パレット
+    // 初期化
     colorList.forEach(c => scores[c] = 0);
+    baseSheet.style.backgroundColor = selectedColor;
+
+    // パレット作成
     colorList.forEach((color, i) => {
         const item = document.createElement('div');
         item.className = 'color-item' + (i === 0 ? ' active' : '');
         item.style.backgroundColor = color;
-        item.onclick = () => {
+        item.onclick = (e) => {
+            e.stopPropagation();
             document.querySelectorAll('.color-item').forEach(el => el.classList.remove('active'));
             item.classList.add('active');
             selectedColor = color;
+            baseSheet.style.backgroundColor = selectedColor;
         };
         document.getElementById('palette').appendChild(item);
     });
 
-    // 塗りつぶしレイヤー（今回は複雑なマスクを使わず、単なる丸で描画）
-    mapMasterData.forEach(data => {
-        const layer = document.createElement('div');
-        layer.id = `layer-${data.x}-${data.y}`;
-        layer.className = 'area-layer';
-        layer.style.backgroundColor = selectedColor;
-        // エリアを覆うのに十分なサイズの円
-        const size = 6.0; 
-        layer.style.clipPath = `circle(${size}% at ${data.x}% ${data.y}%)`;
-        container.appendChild(layer);
-    });
-
-    // クリック処理
-    container.addEventListener('click', (e) => {
-        const rect = container.getBoundingClientRect();
+    function handleMapClick(e) {
+        const rect = document.getElementById('map-outer').getBoundingClientRect();
         const clickX = ((e.clientX - rect.left) / rect.width) * 100;
         const clickY = ((e.clientY - rect.top) / rect.height) * 100;
+        
         let nearest = null; let minDist = 4.0;
         mapMasterData.forEach(data => {
             const dist = Math.sqrt(Math.pow(data.x - clickX, 2) + Math.pow(data.y - clickY, 2));
             if (dist < minDist) { minDist = dist; nearest = data; }
         });
-        if (nearest) toggleArea(nearest);
-    });
+        
+        if (nearest) updateArea(nearest);
+    }
 
-    function toggleArea(data) {
-        const layer = document.getElementById(`layer-${data.x}-${data.y}`);
-        if (layer.classList.contains('active')) {
-            const oldColor = layer.getAttribute('data-color');
-            scores[oldColor] -= pointsConfig[data.lv];
-            layer.classList.remove('active');
+    function updateArea(data) {
+        const areaId = `${data.x}-${data.y}`;
+        // 今回は「単色モード」なので、クリックした場所を「表示」か「非表示」にするだけ
+        if (areaStatus[areaId]) {
+            delete areaStatus[areaId];
+            scores[selectedColor] -= pointsConfig[data.lv];
         } else {
-            layer.style.backgroundColor = selectedColor;
-            layer.setAttribute('data-color', selectedColor);
-            scores[selectedColor] = (scores[selectedColor] || 0) + pointsConfig[data.lv];
-            layer.classList.add('active');
+            areaStatus[areaId] = true;
+            scores[selectedColor] += pointsConfig[data.lv];
         }
+        
+        drawMask();
         refreshBoard();
+    }
+
+    function drawMask() {
+        // 全体を黒く塗りつつ、areaStatusにある場所だけを「くり抜く（透明にする）」
+        // clip-pathの polygon または path を使って「全体を囲ってから中をくり抜く」処理
+        const holes = [];
+        for (const id in areaStatus) {
+            const [x, y] = id.split('-').map(Number);
+            const r = 5.5; 
+            // くり抜き用の円パス
+            holes.push(`M ${x},${y-r} a ${r},${r} 0 1,0 0,${r*2} a ${r},${r} 0 1,0 0,-${r*2}`);
+        }
+
+        if (holes.length > 0) {
+            // mask-image を動的に生成（SVGのmask的な動きをCSSで行う）
+            // 全体を塗りつぶす四角形(M 0,0 H 100 V 100 H 0 Z)から円を引く
+            const pathData = `M 0,0 H 100 V 100 H 0 Z ${holes.join(' ')}`;
+            maskOverlay.style.clipPath = `path(evenodd, '${pathData}')`;
+        } else {
+            maskOverlay.style.clipPath = `none`;
+        }
     }
 
     function refreshBoard() {
         board.innerHTML = '';
-        colorList.forEach(color => {
-            if (scores[color] > 0) {
-                const card = document.createElement('div');
-                card.className = 'score-card';
-                card.style.borderLeftColor = color;
-                card.innerHTML = `<span style="background:${color}; width:14px; height:14px; border-radius:3px;"></span> <b>${scores[color].toLocaleString()}</b> pt`;
-                board.appendChild(card);
-            }
-        });
+        if (scores[selectedColor] > 0) {
+            const card = document.createElement('div');
+            card.className = 'score-card';
+            card.style.borderLeftColor = selectedColor;
+            card.innerHTML = `<span style="background:${selectedColor}; width:14px; height:14px; border-radius:3px;"></span> <b>${scores[selectedColor].toLocaleString()}</b> pt`;
+            board.appendChild(card);
+        }
     }
 
     function resetMap() {
         if(!confirm('リセットしますか？')) return;
-        document.querySelectorAll('.area-layer').forEach(l => l.classList.remove('active'));
-        colorList.forEach(c => scores[c] = 0);
+        areaStatus = {};
+        scores[selectedColor] = 0;
+        drawMask();
         refreshBoard();
     }
 </script>
