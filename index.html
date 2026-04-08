@@ -3,42 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>精密領地シミュレーター v2.2</title>
+    <title>精密領地シミュレーター v2.3</title>
     <style>
         body { font-family: sans-serif; margin: 0; background: #1a1a1a; color: white; text-align: center; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
         
-        /* 操作パネル：1画面に収めるためコンパクトに */
-        .controls { background: #222; padding: 5px; border-bottom: 1px solid #444; font-size: 14px; flex-shrink: 0; }
-        .row { display: flex; justify-content: center; align-items: center; gap: 6px; margin-bottom: 2px; }
+        /* 操作パネル */
+        .controls { background: #222; padding: 8px 5px; border-bottom: 1px solid #444; flex-shrink: 0; z-index: 20; }
+        .row { display: flex; justify-content: center; align-items: center; gap: 6px; flex-wrap: wrap; }
         
-        /* 色選択プルダウン：選択した色に染まるように設定 */
         #colorSelect { 
             background: #444; color: white; border: 1px solid #666; padding: 6px; border-radius: 4px; 
-            font-size: 14px; font-weight: bold; min-width: 110px; text-shadow: 1px 1px 2px #000;
+            font-size: 14px; font-weight: bold; min-width: 100px; text-shadow: 1px 1px 2px #000;
         }
         
-        .mode-btn { background: #444; color: white; border: 1px solid #666; padding: 6px 10px; border-radius: 4px; font-size: 14px; cursor: pointer; }
+        .mode-btn { background: #444; color: white; border: 1px solid #666; padding: 6px 12px; border-radius: 4px; font-size: 14px; cursor: pointer; }
         .mode-btn.active { background: #0066cc; border-color: white; box-shadow: 0 0 5px white; }
         
-        /* 地図エリア */
-        #map-outer { flex: 1; position: relative; overflow: hidden; background: #333; display: flex; align-items: center; justify-content: center; }
-        #map-container { position: relative; line-height: 0; }
-        #baseImg { display: block; max-width: 100%; max-height: calc(100vh - 100px); width: auto; height: auto; }
+        /* スコアボード：折り返し許可でPCでも見やすく */
+        #score-container { background: #222; border-top: 1px solid #444; padding: 6px; flex-shrink: 0; max-height: 25vh; overflow-y: auto; }
+        #score-board { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+        .score-card { background: #333; padding: 4px 8px; border-radius: 4px; font-size: 11px; border-left: 4px solid transparent; text-align: left; min-width: 85px; }
+        .score-card b { font-size: 13px; display: block; }
+        .count-tag { font-size: 10px; color: #aaa; }
+
+        /* 地図エリア：上下の余白を極限まで削る */
+        #map-outer { flex: 1; position: relative; overflow: hidden; background: #000; display: flex; align-items: center; justify-content: center; }
+        #map-container { position: relative; line-height: 0; display: inline-block; }
+        #baseImg { display: block; width: auto; height: auto; max-width: 100vw; max-height: 100%; object-fit: contain; }
         #mapCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; touch-action: none; }
 
-        /* スコア：下部で横スクロール */
-        #footer { background: #222; border-top: 1px solid #444; padding: 4px; overflow-x: auto; white-space: nowrap; flex-shrink: 0; }
-        #score-board { display: inline-flex; gap: 8px; padding: 2px 10px; align-items: center; min-height: 24px; }
-        .score-card { background: #333; padding: 3px 8px; border-radius: 4px; font-size: 12px; border-left: 4px solid transparent; }
-        
-        .btn-reset { background: #600; font-size: 11px; padding: 4px 8px; margin-left: 10px; }
+        .btn-reset { background: #600; font-size: 11px; padding: 4px 8px; }
     </style>
 </head>
 <body>
 
 <div class="controls">
     <div class="row">
-        <span>🎨</span>
         <select id="colorSelect" onchange="updateSelectedColor(this.value)"></select>
         <button id="mode-paint" class="mode-btn active" onclick="setMode('paint')">塗り</button>
         <button id="mode-start" class="mode-btn" onclick="setMode('start')">🚩</button>
@@ -54,8 +54,8 @@
     </div>
 </div>
 
-<div id="footer">
-    <div id="score-board">領地をタップ！</div>
+<div id="score-container">
+    <div id="score-board">領地をタップして開始</div>
 </div>
 
 <script>
@@ -72,6 +72,7 @@
     let selectedColor = colorList[0];
     let currentMode = 'paint';
     let scores = {};
+    let counts = {}; // 拠点数カウント用
     let areaStatus = {};
     let startPos = null;
     let homePos = null;
@@ -92,7 +93,7 @@
     };
 
     function initUI() {
-        colorList.forEach(c => scores[c] = 0);
+        colorList.forEach(c => { scores[c] = 0; counts[c] = 0; });
         const select = document.getElementById('colorSelect');
         colorList.forEach((color, i) => {
             const opt = document.createElement('option');
@@ -139,14 +140,21 @@
             if (nearest) {
                 const key = `${nearest.x}-${nearest.y}`;
                 const rgb = hexToRgb(selectedColor);
+                
+                // 既存の色の処理
                 if (areaStatus[key] === selectedColor) {
                     floodFill(x, y, {r:0,g:0,b:0}, true);
                     scores[selectedColor] -= pointsConfig[nearest.lv];
+                    counts[selectedColor] -= 1;
                     delete areaStatus[key];
                 } else {
-                    if (areaStatus[key]) scores[areaStatus[key]] -= pointsConfig[nearest.lv];
+                    if (areaStatus[key]) {
+                        scores[areaStatus[key]] -= pointsConfig[nearest.lv];
+                        counts[areaStatus[key]] -= 1;
+                    }
                     floodFill(x, y, rgb, false);
                     scores[selectedColor] += pointsConfig[nearest.lv];
+                    counts[selectedColor] += 1;
                     areaStatus[key] = selectedColor;
                 }
                 updateBoard(); render();
@@ -200,16 +208,16 @@
         board.innerHTML = '';
         let hasData = false;
         colorList.forEach((c, i) => {
-            if (scores[c] > 0) {
+            if (counts[c] > 0) {
                 hasData = true;
                 const card = document.createElement('div');
                 card.className = 'score-card';
                 card.style.borderLeftColor = c;
-                card.innerHTML = `${colorNames[i]}: <b>${scores[c].toLocaleString()}</b>`;
+                card.innerHTML = `${colorNames[i]} <span class="count-tag">(${counts[c]}箇所)</span><b>${scores[c].toLocaleString()} pt</b>`;
                 board.appendChild(card);
             }
         });
-        if (!hasData) board.innerHTML = '領地をタップ！';
+        if (!hasData) board.innerHTML = '領地をタップして開始';
     }
 </script>
 </body>
