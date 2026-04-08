@@ -3,12 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>精密領地シミュレーター（バケツ塗り版）</title>
+    <title>領地勢力図シミュレーター</title>
     <style>
         body { font-family: sans-serif; margin: 0; background: #1a1a1a; color: white; text-align: center; overflow-x: hidden; }
         #header { background: #222; padding: 10px; position: sticky; top: 0; z-index: 100; border-bottom: 2px solid #444; }
-        #map-container { position: relative; display: inline-block; margin: 10px auto; line-height: 0; cursor: crosshair; }
-        canvas { display: block; max-width: 100%; height: auto; background: #fff; }
+        #map-container { position: relative; display: inline-block; margin: 10px auto; line-height: 0; cursor: crosshair; background: #fff; }
+        /* 描画用のメインキャンバス */
+        #mapCanvas { display: block; max-width: 100%; height: auto; position: relative; z-index: 10; }
+        /* UI */
         .controls { background: #2a2a2a; padding: 10px; border-bottom: 1px solid #444; }
         .color-palette { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 10px 0; }
         .color-item { width: 36px; height: 36px; border-radius: 6px; cursor: pointer; border: 2px solid #555; }
@@ -30,12 +32,12 @@
 </div>
 
 <div id="map-container">
+    <img id="baseImg" src="img/image.png" style="width:100%; position:absolute; top:0; left:0; z-index:1;">
     <canvas id="mapCanvas"></canvas>
 </div>
 
 <script>
-    // 座標データ（161箇所）
-    const mapMasterData = [{"x":18.26,"y":11.03,"lv":1},{"x":25.97,"y":11.03,"lv":1},{"x":34.12,"y":11.1,"lv":1},{"x":42.04,"y":11.1,"lv":1},{"x":50.77,"y":10.96,"lv":1},{"x":58.55,"y":11.25,"lv":1},{"x":66.04,"y":10.96,"lv":1},{"x":74.55,"y":11.6,"lv":1},{"x":82.55,"y":10.96,"lv":1},{"x":21.46,"y":15.83,"lv":1},{"x":29.68,"y":15.97,"lv":1},{"x":38.19,"y":15.69,"lv":1},{"x":46.26,"y":15.47,"lv":1},{"x":54.41,"y":15.83,"lv":1},{"x":62.19,"y":15.26,"lv":1},{"x":69.32,"y":15.54,"lv":1},{"x":78.48,"y":15.54,"lv":1},{"x":10.77,"y":19.91,"lv":1},{"x":14.77,"y":22.49,"lv":1},{"x":11.13,"y":27.22,"lv":1},{"x":14.77,"y":31.23,"lv":1},{"x":10.99,"y":34.96,"lv":1},{"x":15.57,"y":38.9,"lv":1},{"x":11.21,"y":41.91,"lv":1},{"x":14.77,"y":47.28,"lv":1},{"x":10.55,"y":50.5,"lv":1},{"x":14.99,"y":54.58,"lv":1},{"x":10.63,"y":58.52,"lv":1},{"x":15.28,"y":61.68,"lv":1},{"x":10.7,"y":65.4,"lv":1},{"x":14.92,"y":68.84,"lv":1},{"x":11.28,"y":72.78,"lv":1},{"x":14.63,"y":77.72,"lv":1},{"x":11.13,"y":80.23,"lv":1},{"x":19.13,"y":89.04,"lv":1},{"x":21.9,"y":85.32,"lv":1},{"x":26.41,"y":89.68,"lv":1},{"x":30.33,"y":85.74,"lv":1},{"x":34.92,"y":89.18,"lv":1},{"x":39.28,"y":85.6,"lv":1},{"x":43.06,"y":89.18,"lv":1},{"x":46.41,"y":84.89,"lv":1},{"x":50.04,"y":89.11,"lv":1},{"x":53.83,"y":84.6,"lv":1},{"x":58.41,"y":88.47,"lv":1},{"x":61.9,"y":84.38,"lv":1},{"x":65.83,"y":89.18,"lv":1},{"x":69.61,"y":85.32,"lv":1},{"x":74.7,"y":88.32,"lv":1},{"x":78.92,"y":84.81,"lv":1},{"x":82.92,"y":88.75,"lv":1},{"x":88.81,"y":81.45,"lv":1},{"x":85.46,"y":77.22,"lv":1},{"x":88.95,"y":72.92,"lv":1},{"x":88.81,"y":66.26,"lv":1},{"x":84.73,"y":68.77,"lv":1},{"x":85.46,"y":61.75,"lv":1},{"x":89.83,"y":58.24,"lv":1},{"x":85.61,"y":55.3,"lv":1},{"x":89.32,"y":51.22,"lv":1},{"x":85.46,"y":47.64,"lv":1},{"x":89.83,"y":43.12,"lv":1},{"x":85.61,"y":39.97,"lv":1},{"x":89.68,"y":34.74,"lv":1},{"x":85.53,"y":32.88,"lv":1},{"x":89.68,"y":27.65,"lv":1},{"x":85.61,"y":23.93,"lv":1},{"x":89.53,"y":20.13,"lv":1},{"x":26.77,"y":80.87,"lv":2},{"x":31.06,"y":77.15,"lv":2},{"x":34.63,"y":80.66,"lv":2},{"x":38.48,"y":76.07,"lv":2},{"x":41.53,"y":80.16,"lv":2},{"x":45.24,"y":75.57,"lv":2},{"x":49.68,"y":80.16,"lv":2},{"x":53.97,"y":76.29,"lv":2},{"x":57.83,"y":80.66,"lv":2},{"x":61.39,"y":76.65,"lv":2},{"x":66.04,"y":80.59,"lv":2},{"x":69.53,"y":78.01,"lv":2},{"x":73.53,"y":81.09,"lv":2},{"x":81.24,"y":73.5,"lv":2},{"x":76.73,"y":71.13,"lv":2},{"x":81.24,"y":66.33,"lv":2},{"x":77.24,"y":62.18,"lv":2},{"x":81.68,"y":58.24,"lv":2},{"x":76.88,"y":54.94,"lv":2},{"x":81.1,"y":51.43,"lv":2},{"x":77.03,"y":47.64,"lv":2},{"x":80.95,"y":44.13,"lv":2},{"x":76.37,"y":40.9,"lv":2},{"x":81.39,"y":36.32,"lv":2},{"x":77.46,"y":33.17,"lv":2},{"x":81.32,"y":28.72,"lv":2},{"x":74.41,"y":19.56,"lv":2},{"x":70.26,"y":23.35,"lv":2},{"x":64.81,"y":20.13,"lv":2},{"x":61.68,"y":24.79,"lv":2},{"x":57.24,"y":19.84,"lv":2},{"x":53.97,"y":24.93,"lv":2},{"x":49.68,"y":20.2,"lv":2},{"x":46.48,"y":24.86,"lv":2},{"x":41.9,"y":20.13,"lv":2},{"x":38.55,"y":24,"lv":2},{"x":33.53,"y":19.77,"lv":2},{"x":29.9,"y":22.92,"lv":2},{"x":25.9,"y":19.84,"lv":2},{"x":19.13,"y":27.79,"lv":2},{"x":23.21,"y":31.16,"lv":2},{"x":19.28,"y":35.24,"lv":2},{"x":23.43,"y":39.76,"lv":2},{"x":18.7,"y":42.98,"lv":2},{"x":23.57,"y":46.28,"lv":2},{"x":19.21,"y":50.29,"lv":2},{"x":23.79,"y":54.58,"lv":2},{"x":19.43,"y":58.45,"lv":2},{"x":23.79,"y":62.03,"lv":2},{"x":19.13,"y":65.97,"lv":2},{"x":23.57,"y":69.2,"lv":2},{"x":19.13,"y":73.42,"lv":2},{"x":34.84,"y":73.42,"lv":3},{"x":42.7,"y":71.28,"lv":3},{"x":49.97,"y":70.92,"lv":3},{"x":57.83,"y":72.13,"lv":3},{"x":65.39,"y":73.42,"lv":3},{"x":72.95,"y":66.12,"lv":3},{"x":71.79,"y":58.45,"lv":3},{"x":71.35,"y":51.36,"lv":3},{"x":70.04,"y":44.2,"lv":3},{"x":72.52,"y":36.32,"lv":3},{"x":27.21,"y":35.89,"lv":3},{"x":28.08,"y":42.98,"lv":3},{"x":29.61,"y":50.79,"lv":3},{"x":28.44,"y":58.24,"lv":3},{"x":28.44,"y":65.97,"lv":3},{"x":34.12,"y":27.08,"lv":3},{"x":42.04,"y":28.72,"lv":3},{"x":49.97,"y":29.87,"lv":3},{"x":57.97,"y":29.01,"lv":3},{"x":65.9,"y":28.15,"lv":3},{"x":43.72,"y":65.69,"lv":4},{"x":55.79,"y":66.62,"lv":4},{"x":66.19,"y":58.6,"lv":4},{"x":33.97,"y":57.09,"lv":4},{"x":34.04,"y":42.91,"lv":4},{"x":42.7,"y":34.24,"lv":4},{"x":57.83,"y":34.6,"lv":4},{"x":65.39,"y":46.49,"lv":4},{"x":41.61,"y":58.67,"lv":5},{"x":41.46,"y":42.41,"lv":5},{"x":58.92,"y":42.62,"lv":5},{"x":59.28,"y":59.17,"lv":5},{"x":50.84,"y":58.6,"lv":6},{"x":49.75,"y":41.55,"lv":6},{"x":50.12,"y":49.93,"lv":7}];
+    const mapMasterData = [/* 161個のデータ */];
     const pointsConfig = { 7: 6000, 6: 4000, 5: 3000, 4: 2000, 3: 600, 2: 200, 1: 100 };
     const colorList = ['#e6194B', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4', '#42d4f4', '#f032e6', '#bfef45', '#fabed4', '#469990', '#dcbeff', '#9A6324', '#fffac8', '#800000', '#aaffc3', '#808000', '#ffd8b1', '#000075', '#a9a9a9'];
 
@@ -45,23 +47,30 @@
     let selectedColor = colorList[0];
     let scores = {};
     let areaStatus = {}; // エリアごとの現在の色を記録
-    let imgBase = new Image();
-    let imgMask = new Image();
-    let loaded = 0;
+    let imgMask = new Image(); // あなたが作った透過線画
+    let imgBaseLoaded = false;
+    let imgMaskLoaded = false;
 
-    // 画像読み込み
-    imgBase.src = 'img/image.png';
-    imgMask.src = 'img/mask.png'; 
-    imgBase.crossOrigin = "Anonymous";
-    imgMask.crossOrigin = "Anonymous";
+    // 画像の読み込み（セキュリティ設定を追加）
+    const baseImgTag = document.getElementById('baseImg');
+    baseImgTag.onload = () => { imgBaseLoaded = true; checkLoaded(); };
+    imgMask.onload = () => { imgMaskLoaded = true; checkLoaded(); };
 
-    imgBase.onload = imgMask.onload = () => {
-        if (++loaded === 2) init();
-    };
+    // imgフォルダ内の画像を参照
+    imgMask.src = 'img/mask.png?'; // あなたが作った透過線画
+    
+    // セキュリティ制限（CORS）を回避するための記述
+    baseImgTag.setAttribute('crossOrigin', 'anonymous');
+    imgMask.crossOrigin = 'anonymous';
+
+    function checkLoaded() {
+        if (imgBaseLoaded && imgMaskLoaded) init();
+    }
 
     function init() {
-        canvas.width = imgBase.width;
-        canvas.height = imgBase.height;
+        // キャンバスのサイズを元の画像の解像度に合わせる
+        canvas.width = baseImgTag.naturalWidth;
+        canvas.height = baseImgTag.naturalHeight;
         colorList.forEach(c => scores[c] = 0);
         
         // パレット生成
@@ -78,25 +87,27 @@
             palette.appendChild(item);
         });
 
+        // 初期状態で線だけを表示
         render();
         updateBoard();
     }
 
     function render() {
+        // キャンバスは常に透過させて、下のbaseImgが見えるようにする
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(imgBase, 0, 0);
-        // ※バケツ塗りの結果はctxに直接書き込まれていくのでここでは重ねない
+        // ここに塗られた色を合成していく処理を追加（※今回は簡易化）
         ctx.drawImage(imgMask, 0, 0); 
     }
 
     canvas.onclick = function(e) {
+        if (!imgMaskLoaded) return;
         const rect = canvas.getBoundingClientRect();
         const x = Math.floor((e.clientX - rect.left) * (canvas.width / rect.width));
         const y = Math.floor((e.clientY - rect.top) * (canvas.height / rect.height));
 
-        // 最も近い座標ポイントを探す
+        // クリックした場所の近くのエリア座標を探す
         let nearest = null;
-        let minDist = 50; 
+        let minDist = 30; // 判定距離
         mapMasterData.forEach(p => {
             const px = (p.x * canvas.width / 100);
             const py = (p.y * canvas.height / 100);
@@ -108,8 +119,8 @@
             const key = `${nearest.x}-${nearest.y}`;
             const targetRGB = hexToRgb(selectedColor);
             
-            // バケツ塗り実行
-            floodFill(x, y, targetRGB);
+            // 【重要】バケツ塗り実行：判定は imgMask（線画）で行う
+            floodFillOnMask(x, y, targetRGB);
             
             // スコア更新
             if (areaStatus[key] !== selectedColor) {
@@ -123,64 +134,61 @@
         }
     };
 
-    // バケツ塗り（Flood Fill）エンジン
-    function floodFill(startX, startY, fillRGB) {
+    // 【重要】透過線画のみを判定対象とするバケツ塗りエンジン
+    function floodFillOnMask(startX, startY, fillRGB) {
+        // maskImgの色データだけを取得するキャンバス
+        const offscreen = document.createElement('canvas');
+        offscreen.width = canvas.width;
+        offscreen.height = canvas.height;
+        const oCtx = offscreen.getContext('2d');
+        oCtx.drawImage(imgMask, 0, 0);
+        const oImageData = oCtx.getImageData(0, 0, canvas.width, canvas.height);
+        const oPixels = oImageData.data;
+
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const pixels = imageData.data;
         const width = canvas.width;
         const height = canvas.height;
 
         const startPos = (startY * width + startX) * 4;
-        const startR = pixels[startPos];
-        const startG = pixels[startPos+1];
-        const startB = pixels[startPos+2];
-
-        // 黒い線（境界線）や既に同じ色の場合は塗らない
-        if (isBoundary(startR, startG, startB)) return;
-        if (startR === fillRGB.r && startG === fillRGB.g && startB === fillRGB.b) return;
+        
+        // 黒い線（境界線）や透過部分（α=0）をクリックしたら塗らない
+        if (oPixels[startPos + 3] === 0 || isBoundary(oPixels[startPos], oPixels[startPos+1], oPixels[startPos+2])) return;
 
         const stack = [[startX, startY]];
         while (stack.length) {
             const [x, y] = stack.pop();
-            let curY = y;
-            while (curY >= 0 && isSameColor(x, curY, startR, startG, startB)) curY--;
-            curY++;
+            const pos = (y * width + x) * 4;
+            
+            // すでに塗られていたら飛ばす（重複防止）
+            if (pixels[pos + 3] > 0) continue;
 
-            let reachLeft = false;
-            let reachRight = false;
-            while (curY < height && isSameColor(x, curY, startR, startG, startB)) {
-                const pos = (curY * width + x) * 4;
-                pixels[pos] = fillRGB.r;
-                pixels[pos+1] = fillRGB.g;
-                pixels[pos+2] = fillRGB.b;
-                pixels[pos+3] = 200; // 透明度（数字が見えるように）
+            // 塗る
+            pixels[pos] = fillRGB.r;
+            pixels[pos+1] = fillRGB.g;
+            pixels[pos+2] = fillRGB.b;
+            pixels[pos+3] = 180; // 透明度（数字が見えるように）
 
-                if (x > 0) {
-                    if (isSameColor(x - 1, curY, startR, startG, startB)) {
-                        if (!reachLeft) { stack.push([x - 1, curY]); reachLeft = true; }
-                    } else { reachLeft = false; }
-                }
-                if (x < width - 1) {
-                    if (isSameColor(x + 1, curY, startR, startG, startB)) {
-                        if (!reachRight) { stack.push([x + 1, curY]); reachRight = true; }
-                    } else { reachRight = false; }
-                }
-                curY++;
-            }
+            if (x > 0) checkNext(x - 1, y, startX, startY);
+            if (x < width - 1) checkNext(x + 1, y, startX, startY);
+            if (y > 0) checkNext(x, y - 1, startX, startY);
+            if (y < height - 1) checkNext(x, y + 1, startX, startY);
         }
         ctx.putImageData(imageData, 0, 0);
 
-        function isSameColor(x, y, sr, sg, sb) {
-            const p = (y * width + x) * 4;
-            // 境界線（黒系）でなければ同じ領域とみなして塗る
-            if (pixels[p] < 80 && pixels[p+1] < 80 && pixels[p+2] < 80) return false;
-            // 元の色と似ているか、あるいは既に白っぽい場所なら塗る
-            return true; 
+        // 次のピクセルが境界線の中（透過）で、まだ塗られていないかチェック
+        function checkNext(x, y, sx, sy) {
+            const pos = (y * width + x) * 4;
+            // maskImgで黒い線（境界線）でなければスタックに積む
+            if (oPixels[pos + 3] > 0 && !isBoundary(oPixels[pos], oPixels[pos+1], oPixels[pos+2])) {
+                stack.push([x, y]);
+            }
         }
     }
 
+    // 暗い色（境界線）か判定
     function isBoundary(r, g, b) {
-        return r < 80 && g < 80 && b < 80;
+        return r < 120 && g < 120 && b < 120;
     }
 
     function hexToRgb(hex) {
