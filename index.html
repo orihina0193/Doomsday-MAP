@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>領地勢力図シミュレーター【内側完封塗り版】</title>
+    <title>領地勢力図シミュレーター【完成版】</title>
     <style>
         body { font-family: sans-serif; margin: 0; background: #1a1a1a; color: white; text-align: center; }
         #header { background: #333; padding: 10px; position: sticky; top: 0; z-index: 100; border-bottom: 2px solid #444; }
@@ -18,45 +18,50 @@
             z-index: 5;
             pointer-events: none;
             opacity: 0;
-            transition: opacity 0.1s;
         }
         .area-color-box.active {
-            opacity: 0.5; /* 地図の数字が見えるように少し透かす */
+            opacity: 0.6; /* 透過具合はお好みで。0.6〜0.8くらいが数字が見えやすいです */
         }
 
-        /* 3. 自作のステンシル画像（一番上：ここが肝！） */
+        /* 3. 自作のステンシル画像（一番上） */
         #line-overlay {
             position: absolute; width: 100%; height: 100%; top: 0; left: 0;
             z-index: 10; 
-            pointer-events: none; /* クリックを下の画像に通す */
+            pointer-events: none; 
         }
 
-        /* 調整用パレットなど */
         .controls { background: #2a2a2a; padding: 15px; border-bottom: 1px solid #444; }
         .color-palette { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 10px; }
-        .color-item { width: 34px; height: 34px; border-radius: 6px; cursor: pointer; border: 2px solid transparent; }
+        .color-item { width: 34px; height: 34px; border-radius: 6px; cursor: pointer; border: 2px solid #555; }
         .color-item.active { border-color: white; transform: scale(1.1); box-shadow: 0 0 10px white; }
+        
         #score-board { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; padding: 10px; background: #222; }
         .score-card { background: #333; padding: 8px 12px; border-radius: 6px; font-size: 0.9em; display: flex; align-items: center; gap: 10px; border-left: 5px solid transparent; }
+        
+        button { background:#600; color:white; border:none; padding:8px 15px; border-radius:5px; cursor:pointer; margin-top:10px;}
+        button:hover { background:#800; }
     </style>
 </head>
 <body>
 
 <div id="header">
-    <div id="score-board"></div>
+    <div id="score-board">集計中...</div>
 </div>
 
 <div class="controls">
     <div class="color-palette" id="palette"></div>
-    <button onclick="resetMap()" style="background:#600; color:white; border:none; padding:8px 15px; border-radius:5px; cursor:pointer;">全クリア</button>
+    <button onclick="resetMap()">地図をリセット</button>
 </div>
 
 <div id="map-container" onclick="handleMapClick(event)">
-    <img id="map-image" src="img/image.png"> <img id="line-overlay" src="img/mask.png"> </div>
+    <img id="map-image" src="img/image.png"> 
+    <img id="line-overlay" src="img/mask.png"> 
+</div>
 
 <script>
-    // 座標データ（中略：160箇所分）
-    const mapMasterData = [/* ...お手元のデータをここに... */];
+    // 全161箇所の座標データ
+    const mapMasterData = [{"x":18.26,"y":11.03,"lv":1},{"x":25.97,"y":11.03,"lv":1},{"x":34.12,"y":11.1,"lv":1},{"x":42.04,"y":11.1,"lv":1},{"x":50.77,"y":10.96,"lv":1},{"x":58.55,"y":11.25,"lv":1},{"x":66.04,"y":10.96,"lv":1},{"x":74.55,"y":11.6,"lv":1},{"x":82.55,"y":10.96,"lv":1},{"x":21.46,"y":15.83,"lv":1},{"x":29.68,"y":15.97,"lv":1},{"x":38.19,"y":15.69,"lv":1},{"x":46.26,"y":15.47,"lv":1},{"x":54.41,"y":15.83,"lv":1},{"x":62.19,"y":15.26,"lv":1},{"x":69.32,"y":15.54,"lv":1},{"x":78.48,"y":15.54,"lv":1},{"x":10.77,"y":19.91,"lv":1},{"x":14.77,"y":22.49,"lv":1},{"x":11.13,"y":27.22,"lv":1},{"x":14.77,"y":31.23,"lv":1},{"x":10.99,"y":34.96,"lv":1},{"x":15.57,"y":38.9,"lv":1},{"x":11.21,"y":41.91,"lv":1},{"x":14.77,"y":47.28,"lv":1},{"x":10.55,"y":50.5,"lv":1},{"x":14.99,"y":54.58,"lv":1},{"x":10.63,"y":58.52,"lv":1},{"x":15.28,"y":61.68,"lv":1},{"x":10.7,"y":65.4,"lv":1},{"x":14.92,"y":68.84,"lv":1},{"x":11.28,"y":72.78,"lv":1},{"x":14.63,"y":77.72,"lv":1},{"x":11.13,"y":80.23,"lv":1},{"x":19.13,"y":89.04,"lv":1},{"x":21.9,"y":85.32,"lv":1},{"x":26.41,"y":89.68,"lv":1},{"x":30.33,"y":85.74,"lv":1},{"x":34.92,"y":89.18,"lv":1},{"x":39.28,"y":85.6,"lv":1},{"x":43.06,"y":89.18,"lv":1},{"x":46.41,"y":84.89,"lv":1},{"x":50.04,"y":89.11,"lv":1},{"x":53.83,"y":84.6,"lv":1},{"x":58.41,"y":88.47,"lv":1},{"x":61.9,"y":84.38,"lv":1},{"x":65.83,"y":89.18,"lv":1},{"x":69.61,"y":85.32,"lv":1},{"x":74.7,"y":88.32,"lv":1},{"x":78.92,"y":84.81,"lv":1},{"x":82.92,"y":88.75,"lv":1},{"x":88.81,"y":81.45,"lv":1},{"x":85.46,"y":77.22,"lv":1},{"x":88.95,"y":72.92,"lv":1},{"x":88.81,"y":66.26,"lv":1},{"x":84.73,"y":68.77,"lv":1},{"x":85.46,"y":61.75,"lv":1},{"x":89.83,"y":58.24,"lv":1},{"x":85.61,"y":55.3,"lv":1},{"x":89.32,"y":51.22,"lv":1},{"x":85.46,"y":47.64,"lv":1},{"x":89.83,"y":43.12,"lv":1},{"x":85.61,"y":39.97,"lv":1},{"x":89.68,"y":34.74,"lv":1},{"x":85.53,"y":32.88,"lv":1},{"x":89.68,"y":27.65,"lv":1},{"x":85.61,"y":23.93,"lv":1},{"x":89.53,"y":20.13,"lv":1},{"x":26.77,"y":80.87,"lv":2},{"x":31.06,"y":77.15,"lv":2},{"x":34.63,"y":80.66,"lv":2},{"x":38.48,"y":76.07,"lv":2},{"x":41.53,"y":80.16,"lv":2},{"x":45.24,"y":75.57,"lv":2},{"x":49.68,"y":80.16,"lv":2},{"x":53.97,"y":76.29,"lv":2},{"x":57.83,"y":80.66,"lv":2},{"x":61.39,"y":76.65,"lv":2},{"x":66.04,"y":80.59,"lv":2},{"x":69.53,"y":78.01,"lv":2},{"x":73.53,"y":81.09,"lv":2},{"x":81.24,"y":73.5,"lv":2},{"x":76.73,"y":71.13,"lv":2},{"x":81.24,"y":66.33,"lv":2},{"x":77.24,"y":62.18,"lv":2},{"x":81.68,"y":58.24,"lv":2},{"x":76.88,"y":54.94,"lv":2},{"x":81.1,"y":51.43,"lv":2},{"x":77.03,"y":47.64,"lv":2},{"x":80.95,"y":44.13,"lv":2},{"x":76.37,"y":40.9,"lv":2},{"x":81.39,"y":36.32,"lv":2},{"x":77.46,"y":33.17,"lv":2},{"x":81.32,"y":28.72,"lv":2},{"x":74.41,"y":19.56,"lv":2},{"x":70.26,"y":23.35,"lv":2},{"x":64.81,"y":20.13,"lv":2},{"x":61.68,"y":24.79,"lv":2},{"x":57.24,"y":19.84,"lv":2},{"x":53.97,"y":24.93,"lv":2},{"x":49.68,"y":20.2,"lv":2},{"x":46.48,"y":24.86,"lv":2},{"x":41.9,"y":20.13,"lv":2},{"x":38.55,"y":24,"lv":2},{"x":33.53,"y":19.77,"lv":2},{"x":29.9,"y":22.92,"lv":2},{"x":25.9,"y":19.84,"lv":2},{"x":19.13,"y":27.79,"lv":2},{"x":23.21,"y":31.16,"lv":2},{"x":19.28,"y":35.24,"lv":2},{"x":23.43,"y":39.76,"lv":2},{"x":18.7,"y":42.98,"lv":2},{"x":23.57,"y":46.28,"lv":2},{"x":19.21,"y":50.29,"lv":2},{"x":23.79,"y":54.58,"lv":2},{"x":19.43,"y":58.45,"lv":2},{"x":23.79,"y":62.03,"lv":2},{"x":19.13,"y":65.97,"lv":2},{"x":23.57,"y":69.2,"lv":2},{"x":19.13,"y":73.42,"lv":2},{"x":34.84,"y":73.42,"lv":3},{"x":42.7,"y":71.28,"lv":3},{"x":49.97,"y":70.92,"lv":3},{"x":57.83,"y":72.13,"lv":3},{"x":65.39,"y":73.42,"lv":3},{"x":72.95,"y":66.12,"lv":3},{"x":71.79,"y":58.45,"lv":3},{"x":71.35,"y":51.36,"lv":3},{"x":70.04,"y":44.2,"lv":3},{"x":72.52,"y":36.32,"lv":3},{"x":27.21,"y":35.89,"lv":3},{"x":28.08,"y":42.98,"lv":3},{"x":29.61,"y":50.79,"lv":3},{"x":28.44,"y":58.24,"lv":3},{"x":28.44,"y":65.97,"lv":3},{"x":34.12,"y":27.08,"lv":3},{"x":42.04,"y":28.72,"lv":3},{"x":49.97,"y":29.87,"lv":3},{"x":57.97,"y":29.01,"lv":3},{"x":65.9,"y":28.15,"lv":3},{"x":43.72,"y":65.69,"lv":4},{"x":55.79,"y":66.62,"lv":4},{"x":66.19,"y":58.6,"lv":4},{"x":33.97,"y":57.09,"lv":4},{"x":34.04,"y":42.91,"lv":4},{"x":42.7,"y":34.24,"lv":4},{"x":57.83,"y":34.6,"lv":4},{"x":65.39,"y":46.49,"lv":4},{"x":41.61,"y":58.67,"lv":5},{"x":41.46,"y":42.41,"lv":5},{"x":58.92,"y":42.62,"lv":5},{"x":59.28,"y":59.17,"lv":5},{"x":50.84,"y":58.6,"lv":6},{"x":49.75,"y":41.55,"lv":6},{"x":50.12,"y":49.93,"lv":7}];
+    
     const pointsConfig = { 7: 6000, 6: 4000, 5: 3000, 4: 2000, 3: 600, 2: 200, 1: 100 };
     const colorList = ['#e6194B', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4', '#42d4f4', '#f032e6', '#bfef45', '#fabed4', '#469990', '#dcbeff', '#9A6324', '#fffac8', '#800000', '#aaffc3', '#808000', '#ffd8b1', '#000075', '#a9a9a9'];
 
@@ -64,23 +69,115 @@
     let scores = {};
     const container = document.getElementById('map-container');
     const board = document.getElementById('score-board');
+    const palette = document.getElementById('palette');
 
-    // 初期化：エリアごとに「少し大きめの丸」を生成
-    mapMasterData.forEach(data => {
-        const box = document.createElement('div');
-        box.id = `box-${data.x}-${data.y}`;
-        box.className = 'area-color-box';
-        box.style.width = '100%'; box.style.height = '100%';
-        box.style.top = '0'; box.style.left = '0';
+    // 初期化
+    function init() {
+        colorList.forEach(c => scores[c] = 0);
         
-        // 丸のサイズを 5.5% から少し広げて 7% くらいにすると隙間が埋まりやすいです
-        const r = 7.0; 
-        box.style.clipPath = `circle(${r}% at ${data.x}% ${data.y}%)`;
-        container.insertBefore(box, document.getElementById('line-overlay'));
-    });
+        // パレット作成
+        colorList.forEach((color, i) => {
+            const item = document.createElement('div');
+            item.className = 'color-item' + (i === 0 ? ' active' : '');
+            item.style.backgroundColor = color;
+            item.onclick = (e) => {
+                e.stopPropagation();
+                document.querySelectorAll('.color-item').forEach(el => el.classList.remove('active'));
+                item.classList.add('active');
+                selectedColor = color;
+            };
+            palette.appendChild(item);
+        });
 
-    // パレット・点数計算・クリック処理（以前のロジックと同じ）
-    // ...
+        // エリアボックス作成
+        mapMasterData.forEach(data => {
+            const box = document.createElement('div');
+            box.id = `box-${data.x}-${data.y}`;
+            box.className = 'area-color-box';
+            box.style.width = '100%'; box.style.height = '100%';
+            box.style.top = '0'; box.style.left = '0';
+            
+            // ステンシルからはみ出させるために、少し大きめの丸(8%)にする
+            const r = 8.0; 
+            box.style.clipPath = `circle(${r}% at ${data.x}% ${data.y}%)`;
+            
+            // line-overlayより下に追加
+            container.insertBefore(box, document.getElementById('line-overlay'));
+        });
+        
+        refreshBoard();
+    }
+
+    function handleMapClick(e) {
+        const rect = container.getBoundingClientRect();
+        const clickX = ((e.clientX - rect.left) / rect.width) * 100;
+        const clickY = ((e.clientY - rect.top) / rect.height) * 100;
+        
+        let nearest = null;
+        let minDist = 4.0; // 判定距離
+        
+        mapMasterData.forEach(data => {
+            const dist = Math.sqrt(Math.pow(data.x - clickX, 2) + Math.pow(data.y - clickY, 2));
+            if (dist < minDist) {
+                minDist = dist;
+                nearest = data;
+            }
+        });
+        
+        if (nearest) {
+            updateArea(nearest);
+        }
+    }
+
+    function updateArea(data) {
+        const box = document.getElementById(`box-${data.x}-${data.y}`);
+        const oldColor = box.getAttribute('data-color');
+
+        if (box.classList.contains('active') && oldColor === selectedColor) {
+            // 同じ色なら消去
+            box.classList.remove('active');
+            scores[selectedColor] -= pointsConfig[data.lv];
+            box.removeAttribute('data-color');
+        } else {
+            // 違う色または新規塗り
+            if (box.classList.contains('active')) {
+                scores[oldColor] -= pointsConfig[data.lv];
+            }
+            box.style.backgroundColor = selectedColor;
+            box.setAttribute('data-color', selectedColor);
+            box.classList.add('active');
+            scores[selectedColor] += pointsConfig[data.lv];
+        }
+        refreshBoard();
+    }
+
+    function refreshBoard() {
+        board.innerHTML = '';
+        let hasPoints = false;
+        colorList.forEach(color => {
+            if (scores[color] > 0) {
+                hasPoints = true;
+                const card = document.createElement('div');
+                card.className = 'score-card';
+                card.style.borderLeftColor = color;
+                card.innerHTML = `<span style="background:${color}; width:14px; height:14px; border-radius:3px;"></span> <b>${scores[color].toLocaleString()}</b> pt`;
+                board.appendChild(card);
+            }
+        });
+        if (!hasPoints) board.innerHTML = 'チームを選択してマップをクリックしてください';
+    }
+
+    function resetMap() {
+        if(!confirm('全ての塗りをリセットしますか？')) return;
+        document.querySelectorAll('.area-color-box').forEach(b => {
+            b.classList.remove('active');
+            b.removeAttribute('data-color');
+        });
+        colorList.forEach(c => scores[c] = 0);
+        refreshBoard();
+    }
+
+    init();
 </script>
 </body>
 </html>
