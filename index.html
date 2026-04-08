@@ -3,24 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>精密領地シミュレーター v2.1</title>
+    <title>精密領地シミュレーター v2.2</title>
     <style>
         body { font-family: sans-serif; margin: 0; background: #1a1a1a; color: white; text-align: center; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
-        .controls { background: #222; padding: 5px; border-bottom: 1px solid #444; font-size: 14px; flex-shrink: 0; }
-        .row { display: flex; justify-content: center; align-items: center; gap: 8px; margin-bottom: 5px; }
-        select, .mode-btn { background: #444; color: white; border: 1px solid #666; padding: 5px 8px; border-radius: 4px; font-size: 14px; }
-        .mode-btn.active { background: #0066cc; border-color: white; }
         
-        /* 地図エリアを親要素いっぱいに広げる */
+        /* 操作パネル：1画面に収めるためコンパクトに */
+        .controls { background: #222; padding: 5px; border-bottom: 1px solid #444; font-size: 14px; flex-shrink: 0; }
+        .row { display: flex; justify-content: center; align-items: center; gap: 6px; margin-bottom: 2px; }
+        
+        /* 色選択プルダウン：選択した色に染まるように設定 */
+        #colorSelect { 
+            background: #444; color: white; border: 1px solid #666; padding: 6px; border-radius: 4px; 
+            font-size: 14px; font-weight: bold; min-width: 110px; text-shadow: 1px 1px 2px #000;
+        }
+        
+        .mode-btn { background: #444; color: white; border: 1px solid #666; padding: 6px 10px; border-radius: 4px; font-size: 14px; cursor: pointer; }
+        .mode-btn.active { background: #0066cc; border-color: white; box-shadow: 0 0 5px white; }
+        
+        /* 地図エリア */
         #map-outer { flex: 1; position: relative; overflow: hidden; background: #333; display: flex; align-items: center; justify-content: center; }
         #map-container { position: relative; line-height: 0; }
         #baseImg { display: block; max-width: 100%; max-height: calc(100vh - 100px); width: auto; height: auto; }
         #mapCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; touch-action: none; }
 
-        #footer { background: #222; border-top: 1px solid #444; padding: 5px; overflow-x: auto; white-space: nowrap; flex-shrink: 0; }
-        #score-board { display: inline-flex; gap: 8px; padding: 2px 10px; }
+        /* スコア：下部で横スクロール */
+        #footer { background: #222; border-top: 1px solid #444; padding: 4px; overflow-x: auto; white-space: nowrap; flex-shrink: 0; }
+        #score-board { display: inline-flex; gap: 8px; padding: 2px 10px; align-items: center; min-height: 24px; }
         .score-card { background: #333; padding: 3px 8px; border-radius: 4px; font-size: 12px; border-left: 4px solid transparent; }
-        .btn-reset { background: #600; font-size: 11px; padding: 4px 8px; }
+        
+        .btn-reset { background: #600; font-size: 11px; padding: 4px 8px; margin-left: 10px; }
     </style>
 </head>
 <body>
@@ -70,16 +81,13 @@
     maskImg.crossOrigin = "Anonymous";
     maskImg.src = "img/mask.png";
     maskImg.onload = () => {
-        // マスク画像の解像度をキャンバスの基本サイズにする
         canvas.width = paintCanvas.width = maskImg.width;
         canvas.height = paintCanvas.height = maskImg.height;
-
         const tempCanvas = document.createElement('canvas');
         tempCanvas.width = maskImg.width; tempCanvas.height = maskImg.height;
         const tCtx = tempCanvas.getContext('2d');
         tCtx.drawImage(maskImg, 0, 0);
         maskData = tCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height).data;
-        
         initUI();
     };
 
@@ -88,13 +96,22 @@
         const select = document.getElementById('colorSelect');
         colorList.forEach((color, i) => {
             const opt = document.createElement('option');
-            opt.value = color; opt.textContent = colorNames[i];
+            opt.value = color;
+            opt.textContent = `■ ${colorNames[i]}`;
             select.appendChild(opt);
         });
+        updateSelectedColor(colorList[0]);
         updateBoard(); render();
     }
 
-    function updateSelectedColor(val) { selectedColor = val; setMode('paint'); }
+    function updateSelectedColor(val) {
+        selectedColor = val;
+        const select = document.getElementById('colorSelect');
+        select.style.backgroundColor = val;
+        select.style.color = "white"; 
+        setMode('paint');
+    }
+
     function setMode(mode) {
         currentMode = mode;
         document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
@@ -103,7 +120,6 @@
 
     canvas.onclick = function(e) {
         const rect = canvas.getBoundingClientRect();
-        // ★ここを修正！表示サイズと実サイズの比率を計算
         const scaleX = canvas.width / rect.width;
         const scaleY = canvas.height / rect.height;
         const x = Math.floor((e.clientX - rect.left) * scaleX);
@@ -169,7 +185,7 @@
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(paintCanvas, 0, 0);
         ctx.drawImage(maskImg, 0, 0);
-        ctx.font = "bold 48px sans-serif"; // 拠点の絵文字を少し大きく
+        ctx.font = "bold 48px sans-serif";
         ctx.textAlign = "center"; ctx.textBaseline = "middle";
         if (startPos) ctx.fillText("🚩", startPos.x, startPos.y);
         if (homePos) ctx.fillText("🏰", homePos.x, homePos.y);
