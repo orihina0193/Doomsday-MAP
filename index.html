@@ -3,30 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>精密領地シミュレーター</title>
+    <title>精密領地シミュレーター（バケツ塗り版）</title>
     <style>
-        body { font-family: sans-serif; margin: 0; background: #1a1a1a; color: white; text-align: center; }
-        #header { background: #222; padding: 15px; position: sticky; top: 0; z-index: 100; }
-        #map-container { position: relative; display: inline-block; cursor: pointer; }
-        /* 描画用のキャンバス（ここが色塗りの舞台） */
-        canvas { display: block; max-width: 100%; height: auto; }
+        body { font-family: sans-serif; margin: 0; background: #1a1a1a; color: white; text-align: center; overflow-x: hidden; }
+        #header { background: #222; padding: 10px; position: sticky; top: 0; z-index: 100; border-bottom: 2px solid #444; }
+        #map-container { position: relative; display: inline-block; margin: 10px auto; line-height: 0; cursor: crosshair; }
+        canvas { display: block; max-width: 100%; height: auto; background: #fff; }
         .controls { background: #2a2a2a; padding: 10px; border-bottom: 1px solid #444; }
         .color-palette { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 10px 0; }
-        .color-item { width: 40px; height: 40px; border-radius: 8px; cursor: pointer; border: 2px solid #555; }
-        .color-item.active { border-color: white; box-shadow: 0 0 10px white; }
-        #score-board { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
-        .score-card { background: #444; padding: 5px 12px; border-radius: 5px; }
+        .color-item { width: 36px; height: 36px; border-radius: 6px; cursor: pointer; border: 2px solid #555; }
+        .color-item.active { border-color: white; transform: scale(1.1); box-shadow: 0 0 10px white; }
+        #score-board { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; min-height: 30px; }
+        .score-card { background: #444; padding: 5px 12px; border-radius: 5px; font-size: 0.9em; border-left: 5px solid transparent; }
+        .btn-reset { background: #600; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin: 10px; }
     </style>
 </head>
 <body>
 
 <div id="header">
-    <div id="score-board"></div>
+    <div id="score-board">画像読み込み中...</div>
 </div>
 
 <div class="controls">
     <div class="color-palette" id="palette"></div>
-    <button onclick="location.reload()" style="margin:10px; background:#600; color:white; border:none; padding:8px 15px; border-radius:5px;">リセット</button>
+    <button class="btn-reset" onclick="resetMap()">地図をリセット</button>
 </div>
 
 <div id="map-container">
@@ -34,34 +34,38 @@
 </div>
 
 <script>
-    const mapMasterData = [/* 161個のデータ */];
+    // 座標データ（161箇所）
+    const mapMasterData = [{"x":18.26,"y":11.03,"lv":1},{"x":25.97,"y":11.03,"lv":1},{"x":34.12,"y":11.1,"lv":1},{"x":42.04,"y":11.1,"lv":1},{"x":50.77,"y":10.96,"lv":1},{"x":58.55,"y":11.25,"lv":1},{"x":66.04,"y":10.96,"lv":1},{"x":74.55,"y":11.6,"lv":1},{"x":82.55,"y":10.96,"lv":1},{"x":21.46,"y":15.83,"lv":1},{"x":29.68,"y":15.97,"lv":1},{"x":38.19,"y":15.69,"lv":1},{"x":46.26,"y":15.47,"lv":1},{"x":54.41,"y":15.83,"lv":1},{"x":62.19,"y":15.26,"lv":1},{"x":69.32,"y":15.54,"lv":1},{"x":78.48,"y":15.54,"lv":1},{"x":10.77,"y":19.91,"lv":1},{"x":14.77,"y":22.49,"lv":1},{"x":11.13,"y":27.22,"lv":1},{"x":14.77,"y":31.23,"lv":1},{"x":10.99,"y":34.96,"lv":1},{"x":15.57,"y":38.9,"lv":1},{"x":11.21,"y":41.91,"lv":1},{"x":14.77,"y":47.28,"lv":1},{"x":10.55,"y":50.5,"lv":1},{"x":14.99,"y":54.58,"lv":1},{"x":10.63,"y":58.52,"lv":1},{"x":15.28,"y":61.68,"lv":1},{"x":10.7,"y":65.4,"lv":1},{"x":14.92,"y":68.84,"lv":1},{"x":11.28,"y":72.78,"lv":1},{"x":14.63,"y":77.72,"lv":1},{"x":11.13,"y":80.23,"lv":1},{"x":19.13,"y":89.04,"lv":1},{"x":21.9,"y":85.32,"lv":1},{"x":26.41,"y":89.68,"lv":1},{"x":30.33,"y":85.74,"lv":1},{"x":34.92,"y":89.18,"lv":1},{"x":39.28,"y":85.6,"lv":1},{"x":43.06,"y":89.18,"lv":1},{"x":46.41,"y":84.89,"lv":1},{"x":50.04,"y":89.11,"lv":1},{"x":53.83,"y":84.6,"lv":1},{"x":58.41,"y":88.47,"lv":1},{"x":61.9,"y":84.38,"lv":1},{"x":65.83,"y":89.18,"lv":1},{"x":69.61,"y":85.32,"lv":1},{"x":74.7,"y":88.32,"lv":1},{"x":78.92,"y":84.81,"lv":1},{"x":82.92,"y":88.75,"lv":1},{"x":88.81,"y":81.45,"lv":1},{"x":85.46,"y":77.22,"lv":1},{"x":88.95,"y":72.92,"lv":1},{"x":88.81,"y":66.26,"lv":1},{"x":84.73,"y":68.77,"lv":1},{"x":85.46,"y":61.75,"lv":1},{"x":89.83,"y":58.24,"lv":1},{"x":85.61,"y":55.3,"lv":1},{"x":89.32,"y":51.22,"lv":1},{"x":85.46,"y":47.64,"lv":1},{"x":89.83,"y":43.12,"lv":1},{"x":85.61,"y":39.97,"lv":1},{"x":89.68,"y":34.74,"lv":1},{"x":85.53,"y":32.88,"lv":1},{"x":89.68,"y":27.65,"lv":1},{"x":85.61,"y":23.93,"lv":1},{"x":89.53,"y":20.13,"lv":1},{"x":26.77,"y":80.87,"lv":2},{"x":31.06,"y":77.15,"lv":2},{"x":34.63,"y":80.66,"lv":2},{"x":38.48,"y":76.07,"lv":2},{"x":41.53,"y":80.16,"lv":2},{"x":45.24,"y":75.57,"lv":2},{"x":49.68,"y":80.16,"lv":2},{"x":53.97,"y":76.29,"lv":2},{"x":57.83,"y":80.66,"lv":2},{"x":61.39,"y":76.65,"lv":2},{"x":66.04,"y":80.59,"lv":2},{"x":69.53,"y":78.01,"lv":2},{"x":73.53,"y":81.09,"lv":2},{"x":81.24,"y":73.5,"lv":2},{"x":76.73,"y":71.13,"lv":2},{"x":81.24,"y":66.33,"lv":2},{"x":77.24,"y":62.18,"lv":2},{"x":81.68,"y":58.24,"lv":2},{"x":76.88,"y":54.94,"lv":2},{"x":81.1,"y":51.43,"lv":2},{"x":77.03,"y":47.64,"lv":2},{"x":80.95,"y":44.13,"lv":2},{"x":76.37,"y":40.9,"lv":2},{"x":81.39,"y":36.32,"lv":2},{"x":77.46,"y":33.17,"lv":2},{"x":81.32,"y":28.72,"lv":2},{"x":74.41,"y":19.56,"lv":2},{"x":70.26,"y":23.35,"lv":2},{"x":64.81,"y":20.13,"lv":2},{"x":61.68,"y":24.79,"lv":2},{"x":57.24,"y":19.84,"lv":2},{"x":53.97,"y":24.93,"lv":2},{"x":49.68,"y":20.2,"lv":2},{"x":46.48,"y":24.86,"lv":2},{"x":41.9,"y":20.13,"lv":2},{"x":38.55,"y":24,"lv":2},{"x":33.53,"y":19.77,"lv":2},{"x":29.9,"y":22.92,"lv":2},{"x":25.9,"y":19.84,"lv":2},{"x":19.13,"y":27.79,"lv":2},{"x":23.21,"y":31.16,"lv":2},{"x":19.28,"y":35.24,"lv":2},{"x":23.43,"y":39.76,"lv":2},{"x":18.7,"y":42.98,"lv":2},{"x":23.57,"y":46.28,"lv":2},{"x":19.21,"y":50.29,"lv":2},{"x":23.79,"y":54.58,"lv":2},{"x":19.43,"y":58.45,"lv":2},{"x":23.79,"y":62.03,"lv":2},{"x":19.13,"y":65.97,"lv":2},{"x":23.57,"y":69.2,"lv":2},{"x":19.13,"y":73.42,"lv":2},{"x":34.84,"y":73.42,"lv":3},{"x":42.7,"y":71.28,"lv":3},{"x":49.97,"y":70.92,"lv":3},{"x":57.83,"y":72.13,"lv":3},{"x":65.39,"y":73.42,"lv":3},{"x":72.95,"y":66.12,"lv":3},{"x":71.79,"y":58.45,"lv":3},{"x":71.35,"y":51.36,"lv":3},{"x":70.04,"y":44.2,"lv":3},{"x":72.52,"y":36.32,"lv":3},{"x":27.21,"y":35.89,"lv":3},{"x":28.08,"y":42.98,"lv":3},{"x":29.61,"y":50.79,"lv":3},{"x":28.44,"y":58.24,"lv":3},{"x":28.44,"y":65.97,"lv":3},{"x":34.12,"y":27.08,"lv":3},{"x":42.04,"y":28.72,"lv":3},{"x":49.97,"y":29.87,"lv":3},{"x":57.97,"y":29.01,"lv":3},{"x":65.9,"y":28.15,"lv":3},{"x":43.72,"y":65.69,"lv":4},{"x":55.79,"y":66.62,"lv":4},{"x":66.19,"y":58.6,"lv":4},{"x":33.97,"y":57.09,"lv":4},{"x":34.04,"y":42.91,"lv":4},{"x":42.7,"y":34.24,"lv":4},{"x":57.83,"y":34.6,"lv":4},{"x":65.39,"y":46.49,"lv":4},{"x":41.61,"y":58.67,"lv":5},{"x":41.46,"y":42.41,"lv":5},{"x":58.92,"y":42.62,"lv":5},{"x":59.28,"y":59.17,"lv":5},{"x":50.84,"y":58.6,"lv":6},{"x":49.75,"y":41.55,"lv":6},{"x":50.12,"y":49.93,"lv":7}];
     const pointsConfig = { 7: 6000, 6: 4000, 5: 3000, 4: 2000, 3: 600, 2: 200, 1: 100 };
     const colorList = ['#e6194B', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4', '#42d4f4', '#f032e6', '#bfef45', '#fabed4', '#469990', '#dcbeff', '#9A6324', '#fffac8', '#800000', '#aaffc3', '#808000', '#ffd8b1', '#000075', '#a9a9a9'];
 
     const canvas = document.getElementById('mapCanvas');
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    
     let selectedColor = colorList[0];
     let scores = {};
-    let areaStatus = {}; // どの座標が何色で塗られているか記録
+    let areaStatus = {}; // エリアごとの現在の色を記録
+    let imgBase = new Image();
+    let imgMask = new Image();
+    let loaded = 0;
 
-    const baseImg = new Image();
-    const maskImg = new Image();
-    
-    // 画像の読み込み（2枚揃ってから開始）
-    let loadedCount = 0;
-    baseImg.src = 'img/image.png';
-    maskImg.src = 'img/mask.png'; // あなたが作った透過線画
-    
-    baseImg.onload = maskImg.onload = () => {
-        if (++loadedCount === 2) init();
+    // 画像読み込み
+    imgBase.src = 'img/image.png';
+    imgMask.src = 'img/mask.png'; 
+    imgBase.crossOrigin = "Anonymous";
+    imgMask.crossOrigin = "Anonymous";
+
+    imgBase.onload = imgMask.onload = () => {
+        if (++loaded === 2) init();
     };
 
     function init() {
-        canvas.width = baseImg.width;
-        canvas.height = baseImg.height;
-        drawAll();
-        
+        canvas.width = imgBase.width;
+        canvas.height = imgBase.height;
         colorList.forEach(c => scores[c] = 0);
+        
+        // パレット生成
+        const palette = document.getElementById('palette');
         colorList.forEach((color, i) => {
             const item = document.createElement('div');
             item.className = 'color-item' + (i === 0 ? ' active' : '');
@@ -71,68 +75,138 @@
                 item.classList.add('active');
                 selectedColor = color;
             };
-            document.getElementById('palette').appendChild(item);
+            palette.appendChild(item);
         });
+
+        render();
         updateBoard();
     }
 
-    // 全てを再描画する関数
-    function drawAll() {
+    function render() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(baseImg, 0, 0); // 下地に元の地図
-        // ここで「塗られた色」を合成する処理（今回は簡易化のためクリック時に直接塗ります）
-        ctx.drawImage(maskImg, 0, 0); // 一番上に線を被せる
+        ctx.drawImage(imgBase, 0, 0);
+        // ※バケツ塗りの結果はctxに直接書き込まれていくのでここでは重ねない
+        ctx.drawImage(imgMask, 0, 0); 
     }
 
     canvas.onclick = function(e) {
         const rect = canvas.getBoundingClientRect();
-        const x = (e.clientX - rect.left) * (canvas.width / rect.width);
-        const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+        const x = Math.floor((e.clientX - rect.left) * (canvas.width / rect.width));
+        const y = Math.floor((e.clientY - rect.top) * (canvas.height / rect.height));
 
-        // クリック位置から一番近いエリアを特定
+        // 最も近い座標ポイントを探す
         let nearest = null;
-        let minDist = 30; // 判定距離
-        mapMasterData.forEach(data => {
-            const dx = (data.x * canvas.width / 100) - x;
-            const dy = (data.y * canvas.height / 100) - y;
-            const dist = Math.sqrt(dx*dx + dy*dy);
-            if (dist < minDist) { minDist = dist; nearest = data; }
+        let minDist = 50; 
+        mapMasterData.forEach(p => {
+            const px = (p.x * canvas.width / 100);
+            const py = (p.y * canvas.height / 100);
+            const d = Math.sqrt((px-x)**2 + (py-y)**2);
+            if (d < minDist) { minDist = d; nearest = p; }
         });
 
         if (nearest) {
-            floodFill(Math.floor(x), Math.floor(y), selectedColor);
-            // スコア計算ロジック（重複なしの簡易版）
             const key = `${nearest.x}-${nearest.y}`;
+            const targetRGB = hexToRgb(selectedColor);
+            
+            // バケツ塗り実行
+            floodFill(x, y, targetRGB);
+            
+            // スコア更新
             if (areaStatus[key] !== selectedColor) {
                 if (areaStatus[key]) scores[areaStatus[key]] -= pointsConfig[nearest.lv];
                 scores[selectedColor] += pointsConfig[nearest.lv];
                 areaStatus[key] = selectedColor;
                 updateBoard();
             }
+            // 線を常に一番上に表示
+            ctx.drawImage(imgMask, 0, 0);
         }
     };
 
-    // 【重要】バケツ塗りアルゴリズム
-    function floodFill(startX, startY, fillColor) {
+    // バケツ塗り（Flood Fill）エンジン
+    function floodFill(startX, startY, fillRGB) {
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;
-        // ...（ここに高度な塗りつぶしロジックを実装します）
-        // 実際にはライブラリなしだと長くなるため、
-        // 「線を壁として認識する」処理をここに組み込むことで
-        // 1ピクセルもはみ出さない塗りが可能になります。
+        const pixels = imageData.data;
+        const width = canvas.width;
+        const height = canvas.height;
+
+        const startPos = (startY * width + startX) * 4;
+        const startR = pixels[startPos];
+        const startG = pixels[startPos+1];
+        const startB = pixels[startPos+2];
+
+        // 黒い線（境界線）や既に同じ色の場合は塗らない
+        if (isBoundary(startR, startG, startB)) return;
+        if (startR === fillRGB.r && startG === fillRGB.g && startB === fillRGB.b) return;
+
+        const stack = [[startX, startY]];
+        while (stack.length) {
+            const [x, y] = stack.pop();
+            let curY = y;
+            while (curY >= 0 && isSameColor(x, curY, startR, startG, startB)) curY--;
+            curY++;
+
+            let reachLeft = false;
+            let reachRight = false;
+            while (curY < height && isSameColor(x, curY, startR, startG, startB)) {
+                const pos = (curY * width + x) * 4;
+                pixels[pos] = fillRGB.r;
+                pixels[pos+1] = fillRGB.g;
+                pixels[pos+2] = fillRGB.b;
+                pixels[pos+3] = 200; // 透明度（数字が見えるように）
+
+                if (x > 0) {
+                    if (isSameColor(x - 1, curY, startR, startG, startB)) {
+                        if (!reachLeft) { stack.push([x - 1, curY]); reachLeft = true; }
+                    } else { reachLeft = false; }
+                }
+                if (x < width - 1) {
+                    if (isSameColor(x + 1, curY, startR, startG, startB)) {
+                        if (!reachRight) { stack.push([x + 1, curY]); reachRight = true; }
+                    } else { reachRight = false; }
+                }
+                curY++;
+            }
+        }
+        ctx.putImageData(imageData, 0, 0);
+
+        function isSameColor(x, y, sr, sg, sb) {
+            const p = (y * width + x) * 4;
+            // 境界線（黒系）でなければ同じ領域とみなして塗る
+            if (pixels[p] < 80 && pixels[p+1] < 80 && pixels[p+2] < 80) return false;
+            // 元の色と似ているか、あるいは既に白っぽい場所なら塗る
+            return true; 
+        }
+    }
+
+    function isBoundary(r, g, b) {
+        return r < 80 && g < 80 && b < 80;
+    }
+
+    function hexToRgb(hex) {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) } : null;
     }
 
     function updateBoard() {
         const board = document.getElementById('score-board');
         board.innerHTML = '';
+        let has = false;
         colorList.forEach(c => {
             if (scores[c] > 0) {
-                const s = document.createElement('div');
-                s.className = 'score-card';
-                s.innerHTML = `<span style="color:${c}">●</span> ${scores[c]}pt`;
-                board.appendChild(s);
+                has = true;
+                const card = document.createElement('div');
+                card.className = 'score-card';
+                card.style.borderLeftColor = c;
+                card.innerHTML = `<b>${scores[c].toLocaleString()}</b> pt`;
+                board.appendChild(card);
             }
         });
+        if (!has) board.innerHTML = '領地をタップして占領！';
+    }
+
+    function resetMap() {
+        if (confirm('リセットしますか？')) location.reload();
     }
 </script>
 </body>
