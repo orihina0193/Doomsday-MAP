@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>精密領地シミュレーター v2.5</title>
+    <title>精密領地シミュレーター v2.6</title>
     <style>
+        /* 画面全体の固定 */
         body { font-family: sans-serif; margin: 0; background: #1a1a1a; color: white; text-align: center; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
         
         .controls { background: #222; padding: 8px 5px; border-bottom: 1px solid #444; flex-shrink: 0; z-index: 100; }
@@ -19,12 +20,17 @@
         .score-card { background: #333; padding: 4px 8px; border-radius: 4px; font-size: 11px; border-left: 4px solid transparent; text-align: left; min-width: 85px; }
         .score-card b { font-size: 13px; display: block; }
 
-        /* 地図エリア：ドラッグで動かせるように設定 */
-        #map-outer { flex: 1; position: relative; background: #000; overflow: auto; cursor: grab; display: block; }
-        #map-outer:active { cursor: grabbing; }
+        /* 地図エリア：スマホは標準スクロール、PCはドラッグ */
+        #map-outer { 
+            flex: 1; position: relative; background: #000; 
+            overflow: auto; /* スマホのスクロールを有効化 */
+            -webkit-overflow-scrolling: touch; 
+            display: flex; align-items: flex-start; justify-content: flex-start;
+        }
         #map-container { position: relative; line-height: 0; display: inline-block; margin: auto; }
-        #baseImg { display: block; width: auto; height: auto; max-width: none; max-height: 80vh; }
-        #mapCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; touch-action: none; }
+        #baseImg { display: block; width: auto; height: auto; max-width: none; }
+        /* touch-action: autoにしてスマホの標準挙動を邪魔しない */
+        #mapCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; touch-action: auto; }
 
         .btn-reset { background: #600; font-size: 11px; padding: 4px 8px; }
     </style>
@@ -41,7 +47,7 @@
     </div>
 </div>
 
-<div id="map-outer" id="scrollArea">
+<div id="map-outer">
     <div id="map-container">
         <img id="baseImg" src="img/image.png">
         <canvas id="mapCanvas"></canvas>
@@ -74,12 +80,13 @@
     let maskData = null;
     let maskImg = new Image();
 
-    // ドラッグ移動用変数
-    let isDragging = false;
-    let startX, startY, scrollLeft, scrollTop;
+    // PC用ドラッグ制御
+    let isMouseDown = false;
+    let dragActive = false;
+    let sX, sY, sL, sT;
 
     maskImg.crossOrigin = "Anonymous";
-    maskImg.src = "img/image.png"; // ※実際の運用に合わせてmask.png等に変更してください
+    maskImg.src = "img/mask.png";
     maskImg.onload = () => {
         canvas.width = paintCanvas.width = maskImg.width;
         canvas.height = paintCanvas.height = maskImg.height;
@@ -91,26 +98,25 @@
         initUI();
     };
 
-    // マウスドラッグ移動の実装
+    // PC用：マウスドラッグでのスクロール（スマホに影響しないよう制御）
     outer.addEventListener('mousedown', (e) => {
-        if (e.button !== 0) return; // 左クリックのみ
-        isDragging = true;
-        startX = e.pageX - outer.offsetLeft;
-        startY = e.pageY - outer.offsetTop;
-        scrollLeft = outer.scrollLeft;
-        scrollTop = outer.scrollTop;
+        if (e.button !== 0) return;
+        isMouseDown = true; dragActive = false;
+        sX = e.pageX - outer.offsetLeft;
+        sY = e.pageY - outer.offsetTop;
+        sL = outer.scrollLeft;
+        sT = outer.scrollTop;
     });
-    outer.addEventListener('mouseleave', () => isDragging = false);
-    outer.addEventListener('mouseup', () => isDragging = false);
+    window.addEventListener('mouseup', () => { isMouseDown = false; });
     outer.addEventListener('mousemove', (e) => {
-        if (!isDragging) return;
-        e.preventDefault();
+        if (!isMouseDown) return;
         const x = e.pageX - outer.offsetLeft;
         const y = e.pageY - outer.offsetTop;
-        const walkX = (x - startX);
-        const walkY = (y - startY);
-        outer.scrollLeft = scrollLeft - walkX;
-        outer.scrollTop = scrollTop - walkY;
+        if (Math.abs(x - sX) > 5 || Math.abs(y - sY) > 5) {
+            dragActive = true; // 5px以上動いたらドラッグとみなす
+            outer.scrollLeft = sL - (x - sX);
+            outer.scrollTop = sT - (y - sY);
+        }
     });
 
     function initUI() {
@@ -140,9 +146,9 @@
         if(mode !== 'reset') document.getElementById('mode-' + mode).classList.add('active');
     }
 
-    canvas.onclick = function(e) {
-        // ドラッグ直後はクリック判定を無視（移動しただけなら塗らない）
-        if (isDragging) return;
+    // クリック/タップ判定
+    canvas.addEventListener('click', function(e) {
+        if (dragActive) return; // ドラッグ移動した後は塗らない
 
         const rect = canvas.getBoundingClientRect();
         const scaleX = canvas.width / rect.width;
@@ -182,7 +188,7 @@
                 updateBoard(); render();
             }
         }
-    };
+    });
 
     function floodFill(startX, startY, fillRGB, isCancel) {
         const imgData = pCtx.getImageData(0, 0, paintCanvas.width, paintCanvas.height);
