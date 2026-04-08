@@ -2,34 +2,28 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>精密領地シミュレーター v2.3</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>精密領地シミュレーター v2.5</title>
     <style>
-        body { font-family: sans-serif; margin: 0; background: #1a1a1a; color: white; text-align: center; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+        body { font-family: sans-serif; margin: 0; background: #1a1a1a; color: white; text-align: center; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
         
-        /* 操作パネル */
-        .controls { background: #222; padding: 8px 5px; border-bottom: 1px solid #444; flex-shrink: 0; z-index: 20; }
+        .controls { background: #222; padding: 8px 5px; border-bottom: 1px solid #444; flex-shrink: 0; z-index: 100; }
         .row { display: flex; justify-content: center; align-items: center; gap: 6px; flex-wrap: wrap; }
         
-        #colorSelect { 
-            background: #444; color: white; border: 1px solid #666; padding: 6px; border-radius: 4px; 
-            font-size: 14px; font-weight: bold; min-width: 100px; text-shadow: 1px 1px 2px #000;
-        }
-        
+        #colorSelect { background: #444; color: white; border: 1px solid #666; padding: 6px; border-radius: 4px; font-size: 14px; font-weight: bold; min-width: 100px; text-shadow: 1px 1px 2px #000; }
         .mode-btn { background: #444; color: white; border: 1px solid #666; padding: 6px 12px; border-radius: 4px; font-size: 14px; cursor: pointer; }
         .mode-btn.active { background: #0066cc; border-color: white; box-shadow: 0 0 5px white; }
         
-        /* スコアボード：折り返し許可でPCでも見やすく */
-        #score-container { background: #222; border-top: 1px solid #444; padding: 6px; flex-shrink: 0; max-height: 25vh; overflow-y: auto; }
+        #score-container { background: #222; border-top: 1px solid #444; padding: 6px; flex-shrink: 0; max-height: 20vh; overflow-y: auto; }
         #score-board { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
         .score-card { background: #333; padding: 4px 8px; border-radius: 4px; font-size: 11px; border-left: 4px solid transparent; text-align: left; min-width: 85px; }
         .score-card b { font-size: 13px; display: block; }
-        .count-tag { font-size: 10px; color: #aaa; }
 
-        /* 地図エリア：上下の余白を極限まで削る */
-        #map-outer { flex: 1; position: relative; overflow: hidden; background: #000; display: flex; align-items: center; justify-content: center; }
-        #map-container { position: relative; line-height: 0; display: inline-block; }
-        #baseImg { display: block; width: auto; height: auto; max-width: 100vw; max-height: 100%; object-fit: contain; }
+        /* 地図エリア：ドラッグで動かせるように設定 */
+        #map-outer { flex: 1; position: relative; background: #000; overflow: auto; cursor: grab; display: block; }
+        #map-outer:active { cursor: grabbing; }
+        #map-container { position: relative; line-height: 0; display: inline-block; margin: auto; }
+        #baseImg { display: block; width: auto; height: auto; max-width: none; max-height: 80vh; }
         #mapCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; touch-action: none; }
 
         .btn-reset { background: #600; font-size: 11px; padding: 4px 8px; }
@@ -47,7 +41,7 @@
     </div>
 </div>
 
-<div id="map-outer">
+<div id="map-outer" id="scrollArea">
     <div id="map-container">
         <img id="baseImg" src="img/image.png">
         <canvas id="mapCanvas"></canvas>
@@ -64,6 +58,7 @@
     const colorList = ['#e6194B', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4', '#42d4f4', '#f032e6', '#bfef45', '#fabed4', '#469990', '#dcbeff', '#9A6324', '#fffac8', '#800000', '#aaffc3', '#808000', '#ffd8b1', '#000075', '#a9a9a9'];
     const colorNames = ['レッド', 'グリーン', 'イエロー', 'ブルー', 'オレンジ', 'パープル', 'スカイ', 'マゼンタ', 'ライム', 'ピンク', 'ティール', 'ラベンダー', 'ブラウン', 'ベージュ', 'マルーン', 'ミント', 'オリーブ', 'アプリコット', 'ネイビー', 'グレー'];
 
+    const outer = document.getElementById('map-outer');
     const canvas = document.getElementById('mapCanvas');
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     const paintCanvas = document.createElement('canvas');
@@ -72,15 +67,19 @@
     let selectedColor = colorList[0];
     let currentMode = 'paint';
     let scores = {};
-    let counts = {}; // 拠点数カウント用
+    let counts = {};
     let areaStatus = {};
     let startPos = null;
     let homePos = null;
     let maskData = null;
     let maskImg = new Image();
 
+    // ドラッグ移動用変数
+    let isDragging = false;
+    let startX, startY, scrollLeft, scrollTop;
+
     maskImg.crossOrigin = "Anonymous";
-    maskImg.src = "img/mask.png";
+    maskImg.src = "img/image.png"; // ※実際の運用に合わせてmask.png等に変更してください
     maskImg.onload = () => {
         canvas.width = paintCanvas.width = maskImg.width;
         canvas.height = paintCanvas.height = maskImg.height;
@@ -91,6 +90,28 @@
         maskData = tCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height).data;
         initUI();
     };
+
+    // マウスドラッグ移動の実装
+    outer.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return; // 左クリックのみ
+        isDragging = true;
+        startX = e.pageX - outer.offsetLeft;
+        startY = e.pageY - outer.offsetTop;
+        scrollLeft = outer.scrollLeft;
+        scrollTop = outer.scrollTop;
+    });
+    outer.addEventListener('mouseleave', () => isDragging = false);
+    outer.addEventListener('mouseup', () => isDragging = false);
+    outer.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        e.preventDefault();
+        const x = e.pageX - outer.offsetLeft;
+        const y = e.pageY - outer.offsetTop;
+        const walkX = (x - startX);
+        const walkY = (y - startY);
+        outer.scrollLeft = scrollLeft - walkX;
+        outer.scrollTop = scrollTop - walkY;
+    });
 
     function initUI() {
         colorList.forEach(c => { scores[c] = 0; counts[c] = 0; });
@@ -120,6 +141,9 @@
     }
 
     canvas.onclick = function(e) {
+        // ドラッグ直後はクリック判定を無視（移動しただけなら塗らない）
+        if (isDragging) return;
+
         const rect = canvas.getBoundingClientRect();
         const scaleX = canvas.width / rect.width;
         const scaleY = canvas.height / rect.height;
@@ -140,8 +164,6 @@
             if (nearest) {
                 const key = `${nearest.x}-${nearest.y}`;
                 const rgb = hexToRgb(selectedColor);
-                
-                // 既存の色の処理
                 if (areaStatus[key] === selectedColor) {
                     floodFill(x, y, {r:0,g:0,b:0}, true);
                     scores[selectedColor] -= pointsConfig[nearest.lv];
@@ -213,7 +235,7 @@
                 const card = document.createElement('div');
                 card.className = 'score-card';
                 card.style.borderLeftColor = c;
-                card.innerHTML = `${colorNames[i]} <span class="count-tag">(${counts[c]}箇所)</span><b>${scores[c].toLocaleString()} pt</b>`;
+                card.innerHTML = `${colorNames[i]} (${counts[c]}箇所)<b>${scores[c].toLocaleString()} pt</b>`;
                 board.appendChild(card);
             }
         });
