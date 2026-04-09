@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>精密領地シミュレーター v5.1</title>
+    <title>精密領地シミュレーター v5.2</title>
     <style>
         :root { --panel-width: 280px; }
         body { font-family: sans-serif; margin: 0; background: #1a1a1a; color: white; height: 100vh; display: flex; overflow: hidden; }
@@ -27,9 +27,8 @@
         .controls { padding: 10px; border-bottom: 1px solid #444; background: #222; position: sticky; top: 0; z-index: 30; }
         .row { display: flex; flex-direction: column; gap: 6px; }
         
-        /* ★横並び用のスタイル */
         .row-group { display: flex; gap: 6px; align-items: center; }
-        .row-group > * { flex: 1; width: 50%; } /* 半分ずつ */
+        .row-group > * { flex: 1; width: 50%; }
 
         .mode-group { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; }
         
@@ -38,7 +37,6 @@
         .mode-btn.active { background: #0066cc; border-color: white; box-shadow: 0 0 5px white; }
         .btn-save { background: #28a745; color: white; border: none; padding: 10px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 14px; }
         
-        /* ★リセットボタンのスタイル調整 */
         .btn-reset { background: #555; color: #ddd; border: 1px solid #666; padding: 10px; border-radius: 4px; font-size: 13px; cursor: pointer; height: 42px; }
 
         #score-container { flex: 1; overflow-y: auto; padding: 12px; background: #111; }
@@ -81,7 +79,6 @@
 </div>
 
 <script>
-    // ※JavaScript部分は v5.0 と同じ（startPositionsの複数管理・重複タップ削除・ソート機能を含む）
     const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
     if (isMobile) document.body.classList.add('is-mobile');
 
@@ -106,6 +103,7 @@
         maskData = tCtx.getImageData(0, 0, tCanvas.width, tCanvas.height).data;
         initUI();
     };
+    maskImg.onerror = () => { alert("マップデータの読み込みに失敗しました。再読み込みしてください。"); };
 
     function initUI() {
         colorList.forEach(c => { scores[c] = 0; counts[c] = 0; });
@@ -125,6 +123,7 @@
         clickTimer = setTimeout(() => { if (activePointers.size === 1) handleCanvasAction(e); clickTimer = null; }, 50);
     });
     canvas.addEventListener('pointerup', (e) => { activePointers.delete(e.pointerId); });
+    canvas.addEventListener('pointercancel', (e) => { activePointers.delete(e.pointerId); });
 
     function handleCanvasAction(e) {
         const rect = canvas.getBoundingClientRect();
@@ -170,15 +169,29 @@
     }
 
     function floodFill(startX, startY, fillRGB, isCancel) {
-        const imgData = pCtx.getImageData(0, 0, paintCanvas.width, paintCanvas.height), pixels = imgData.data, width = paintCanvas.width, height = paintCanvas.height;
+        const imgData = pCtx.getImageData(0, 0, paintCanvas.width, paintCanvas.height), pixels = imgData.data;
+        const width = paintCanvas.width, height = paintCanvas.height;
         const stack = [[Math.floor(startX), Math.floor(startY)]], targetAlpha = isCancel ? 0 : 160;
+        const visited = new Uint8Array(width * height);
+
         while (stack.length) {
-            const [cx, cy] = stack.pop(), p = (cy * width + cx) * 4;
-            if (!isCancel && pixels[p+3] > 0) continue; if (isCancel && pixels[p+3] === 0) continue;
+            const [cx, cy] = stack.pop();
+            const vIndex = cy * width + cx;
+            if (visited[vIndex]) continue;
+            visited[vIndex] = 1;
+
+            const p = vIndex * 4;
+            if (!isCancel && pixels[p+3] > 0) continue; 
+            if (isCancel && pixels[p+3] === 0) continue;
+
             pixels[p] = fillRGB.r; pixels[p+1] = fillRGB.g; pixels[p+2] = fillRGB.b; pixels[p+3] = targetAlpha;
+
             [[0,1],[0,-1],[1,0],[-1,0]].forEach(([dx, dy]) => { 
                 const nx = cx + dx, ny = cy + dy; 
-                if (nx >= 0 && nx < width && ny >= 0 && ny < height && maskData[(ny * width + nx) * 4 + 3] === 0) stack.push([nx, ny]); 
+                if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                    const nIndex = ny * width + nx;
+                    if (!visited[nIndex] && maskData[nIndex * 4 + 3] === 0) stack.push([nx, ny]); 
+                }
             });
         }
         pCtx.putImageData(imgData, 0, 0);
@@ -196,9 +209,7 @@
         board.innerHTML = '';
         let activeAlliances = [];
         colorList.forEach((c, i) => {
-            if (counts[c] > 0) {
-                activeAlliances.push({ color: c, name: colorNames[i], count: counts[c], score: scores[c] });
-            }
+            if (counts[c] > 0) activeAlliances.push({ color: c, name: colorNames[i], count: counts[c], score: scores[c] });
         });
         activeAlliances.sort((a, b) => b.score - a.score);
         activeAlliances.forEach(all => {
@@ -218,8 +229,22 @@
         const encoded = btoa(encodeURIComponent(JSON.stringify(data)));
         const longUrl = window.location.href.split('?')[0] + "?data=" + encoded;
         const callbackName = "isgd_callback_" + Date.now();
-        window[callbackName] = function(res) { if (res.shorturl) { navigator.clipboard.writeText(res.shorturl).then(() => alert("URLをコピーしました！")); } else { alert("発行失敗"); } delete window[callbackName]; };
-        const script = document.createElement("script"); script.src = `https://is.gd/create.php?format=json&callback=${callbackName}&url=${encodeURIComponent(longUrl)}`; document.body.appendChild(script);
+        
+        let isTimeout = false;
+        const timeoutId = setTimeout(() => { isTimeout = true; alert("通信エラー：短縮URLの発行に失敗しました。"); delete window[callbackName]; }, 5000);
+
+        window[callbackName] = function(res) { 
+            if (isTimeout) return;
+            clearTimeout(timeoutId);
+            if (res.shorturl) { navigator.clipboard.writeText(res.shorturl).then(() => alert("URLをコピーしました！")); } 
+            else { alert("URLの発行に失敗しました。"); } 
+            delete window[callbackName]; 
+        };
+        
+        const script = document.createElement("script"); 
+        script.src = `https://is.gd/create.php?format=json&callback=${callbackName}&url=${encodeURIComponent(longUrl)}`; 
+        script.onerror = () => { if (isTimeout) return; clearTimeout(timeoutId); alert("URL短縮サービスに接続できませんでした。"); delete window[callbackName]; };
+        document.body.appendChild(script);
     }
 
     function loadFromUrl() {
